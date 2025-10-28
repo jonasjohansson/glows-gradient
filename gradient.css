@@ -1,0 +1,27 @@
+/* Gradient Styles */
+.gradient-overlay {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 100%;
+  height: 100vh;
+  background-color: #0f0f0f;
+  background-image: radial-gradient(at 85% 15%, hsla(241, 83%, 78%, 1) 0px, transparent 50%),
+    radial-gradient(at 75% 25%, hsla(35, 76%, 78%, 1) 0px, transparent 50%),
+    radial-gradient(at 90% 35%, hsla(315, 64%, 64%, 1) 0px, transparent 50%),
+    radial-gradient(at 80% 45%, hsla(261, 89%, 63%, 1) 0px, transparent 50%),
+    radial-gradient(at 70% 20%, hsla(214, 62%, 64%, 1) 0px, transparent 50%),
+    radial-gradient(at 95% 30%, hsla(49, 99%, 67%, 1) 0px, transparent 50%),
+    radial-gradient(at 88% 40%, hsla(127, 84%, 71%, 1) 0px, transparent 50%);
+  z-index: 10;
+  animation: hue-rotate 12s linear infinite;
+}
+
+@keyframes hue-rotate {
+  0% {
+    filter: hue-rotate(0deg);
+  }
+  100% {
+    filter: hue-rotate(360deg);
+  }
+}

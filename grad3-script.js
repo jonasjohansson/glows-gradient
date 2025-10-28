@@ -30,11 +30,11 @@ class PNGGradientController {
       midHue: 30,
       midSaturation: 75,
       midLightness: 55,
-      midOpacity: 0.8,
+      midOpacity: 0,
       endHue: 280,
       endSaturation: 65,
       endLightness: 70,
-      endOpacity: 0.7,
+      endOpacity: 0,
 
       // Color Overlay Controls
       colorOverlayIntensity: 1.0,

@@ -1,0 +1,168 @@
+/* Gradient Bubbles Styles */
+html,
+body {
+  font-family: "Dongle", sans-serif;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --color-bg1: rgb(108, 0, 162);
+  --color-bg2: rgb(0, 17, 82);
+  --color1: 18, 113, 255;
+  --color2: 221, 74, 255;
+  --color3: 100, 220, 255;
+  --color4: 200, 50, 50;
+  --color5: 180, 180, 50;
+  --color-interactive: 140, 100, 255;
+  --circle-size: 80%;
+  --blending: hard-light;
+}
+
+@keyframes moveInCircle {
+  0% {
+    transform: rotate(0deg);
+  }
+  50% {
+    transform: rotate(180deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes moveVertical {
+  0% {
+    transform: translateY(-20px) translateX(10px);
+  }
+  50% {
+    transform: translateY(20px) translateX(-10px);
+  }
+  100% {
+    transform: translateY(-20px) translateX(10px);
+  }
+}
+
+@keyframes moveHorizontal {
+  0% {
+    transform: translateX(-15px) translateY(-5px);
+  }
+  50% {
+    transform: translateX(15px) translateY(5px);
+  }
+  100% {
+    transform: translateX(-15px) translateY(-5px);
+  }
+}
+
+@keyframes gentleFloat {
+  0% {
+    transform: translateX(0px) translateY(0px) scale(1);
+  }
+  25% {
+    transform: translateX(10px) translateY(-8px) scale(1.02);
+  }
+  50% {
+    transform: translateX(-5px) translateY(12px) scale(0.98);
+  }
+  75% {
+    transform: translateX(8px) translateY(-6px) scale(1.01);
+  }
+  100% {
+    transform: translateX(0px) translateY(0px) scale(1);
+  }
+}
+
+.gradient-bg {
+  width: 100vw;
+  height: 100vh;
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(40deg, var(--color-bg1), var(--color-bg2));
+  top: 0;
+  left: 0;
+}
+
+.gradient-bg svg {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+}
+
+.gradients-container {
+  filter: url(#goo) blur(40px);
+  width: 100%;
+  height: 100%;
+}
+
+.g1 {
+  position: absolute;
+  width: var(--circle-size);
+  height: var(--circle-size);
+  top: calc(20% - var(--circle-size) / 2);
+  left: calc(70% - var(--circle-size) / 2);
+  transform-origin: center center;
+  animation: moveVertical 30s ease infinite;
+  opacity: 1;
+}
+
+.g2 {
+  position: absolute;
+  width: var(--circle-size);
+  height: var(--circle-size);
+  top: calc(30% - var(--circle-size) / 2);
+  left: calc(80% - var(--circle-size) / 2);
+  transform-origin: calc(50% - 200px);
+  animation: moveInCircle 20s reverse infinite;
+  opacity: 1;
+}
+
+.g3 {
+  position: absolute;
+  width: var(--circle-size);
+  height: var(--circle-size);
+  top: calc(15% - var(--circle-size) / 2);
+  left: calc(85% - var(--circle-size) / 2);
+  transform-origin: calc(50% + 300px);
+  animation: moveInCircle 40s linear infinite;
+  opacity: 1;
+}
+
+.g4 {
+  position: absolute;
+  width: var(--circle-size);
+  height: var(--circle-size);
+  top: calc(25% - var(--circle-size) / 2);
+  left: calc(75% - var(--circle-size) / 2);
+  transform-origin: calc(50% - 100px);
+  animation: moveHorizontal 40s ease infinite;
+  opacity: 0.7;
+}
+
+.g5 {
+  position: absolute;
+  width: calc(var(--circle-size) * 1.5);
+  height: calc(var(--circle-size) * 1.5);
+  top: calc(10% - var(--circle-size) * 0.75);
+  left: calc(90% - var(--circle-size) * 0.75);
+  transform-origin: calc(50% - 400px) calc(50% + 100px);
+  animation: moveInCircle 20s ease infinite;
+  opacity: 1;
+}
+
+.interactive {
+  position: absolute;
+  width: 80%;
+  height: 80%;
+  top: calc(35% - 40%);
+  left: calc(65% - 40%);
+  opacity: 0.6;
+  animation: gentleFloat 25s ease-in-out infinite;
+}
+
+/* lil-gui positioning */
+.lil-gui {
+  z-index: 1000;
+}

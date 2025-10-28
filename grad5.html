@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0" />
+    <title>SVG Gradient Cards - grad5</title>
+    <link
+      rel="stylesheet"
+      href="grad5.css" />
+  </head>
+  <body>
+    <!-- Grain filter -->
+    <svg
+      width="0"
+      height="0"
+      aria-hidden="true">
+      <filter
+        id="grain"
+        color-interpolation-filters="sRGB"
+        primitiveUnits="objectBoundingBox">
+        <feTurbulence
+          type="fractalNoise"
+          baseFrequency="0.713"
+          numOctaves="4" />
+        <feDisplacementMap
+          in="SourceGraphic"
+          scale="0.1"
+          xChannelSelector="R" />
+        <feColorMatrix
+          type="matrix"
+          values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 1 0" />
+        <feBlend in2="SourceGraphic" />
+      </filter>
+    </svg>
+
+    <main>
+      <!-- Single Card -->
+      <svg class="card">
+        <defs>
+          <radialGradient
+            id="g01"
+            cx="85%"
+            cy="15%">
+            <stop
+              stop-color="#C85032"
+              offset="0%" />
+            <stop
+              stop-color="#8B1E3F"
+              offset="30%" />
+            <stop
+              stop-color="#4A1A5C"
+              offset="60%" />
+            <stop
+              stop-color="#2D1B69"
+              offset="80%" />
+            <stop
+              stop-color="#1A0F2E"
+              offset="95%" />
+            <stop
+              stop-color="transparent"
+              offset="100%" />
+          </radialGradient>
+          <radialGradient
+            id="g02"
+            cx="80%"
+            cy="20%">
+            <stop
+              stop-color="#D65A2A"
+              offset="0%" />
+            <stop
+              stop-color="#A02A4A"
+              offset="40%" />
+            <stop
+              stop-color="#6B2A5A"
+              offset="70%" />
+            <stop
+              stop-color="#3D1A3A"
+              offset="90%" />
+            <stop
+              stop-color="transparent"
+              offset="100%" />
+          </radialGradient>
+          <radialGradient
+            id="g03"
+            cx="90%"
+            cy="10%">
+            <stop
+              stop-color="#E85A1A"
+              offset="0%" />
+            <stop
+              stop-color="#B8323A"
+              offset="50%" />
+            <stop
+              stop-color="#8B2A4A"
+              offset="75%" />
+            <stop
+              stop-color="#4A1A2A"
+              offset="90%" />
+            <stop
+              stop-color="transparent"
+              offset="100%" />
+          </radialGradient>
+        </defs>
+        <g>
+          <rect
+            width="100%"
+            height="100%"
+            fill="var(--bg-color, #000000)" />
+          <ellipse
+            cx="85%"
+            cy="15%"
+            rx="80%"
+            ry="60%"
+            fill="url(#g01)" />
+          <ellipse
+            cx="80%"
+            cy="20%"
+            rx="70%"
+            ry="50%"
+            fill="url(#g02)" />
+          <ellipse
+            cx="90%"
+            cy="10%"
+            rx="60%"
+            ry="40%"
+            fill="url(#g03)" />
+        </g>
+      </svg>
+    </main>
+
+    <!-- lil-gui -->
+    <script type="module">
+      import "./grad5-script.js";
+    </script>
+  </body>
+</html>

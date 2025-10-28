@@ -18,7 +18,7 @@
   position: relative;
 }
 
-.gradient-png::before {
+.gradient-png::after {
   content: "";
   position: absolute;
   top: 0;
@@ -31,9 +31,10 @@
     var(--mid-color, hsla(30, 75%, 55%, 0.8)) 50%,
     var(--end-color, hsla(280, 65%, 70%, 0.7)) 100%
   );
-  mix-blend-mode: multiply;
-  opacity: 0.3;
+  mix-blend-mode: var(--overlay-blend-mode, normal);
+  opacity: var(--overlay-intensity, 1);
   pointer-events: none;
+  z-index: 2;
 }
 
 /* Animation keyframes */

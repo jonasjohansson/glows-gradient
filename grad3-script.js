@@ -36,6 +36,10 @@ class PNGGradientController {
       endLightness: 70,
       endOpacity: 0.7,
 
+      // Color Overlay Controls
+      colorOverlayIntensity: 1.0,
+      colorOverlayBlendMode: "normal",
+
       // Animation
       animateFloat: false,
       animatePulse: true,
@@ -75,6 +79,7 @@ class PNGGradientController {
     this.updateTextColor();
     this.updateDisplacement();
     this.updateTravelingDisplacement();
+    this.updateColorOverlay();
 
     // Position GUI on the left
     this.gui.domElement.style.position = "fixed";
@@ -139,51 +144,82 @@ class PNGGradientController {
     colorFolder
       .add(this.params, "startHue", 0, 360)
       .name("Start Hue")
-      .onChange(() => this.updateGradient());
+      .onChange(() => this.updateColorOverlay());
     colorFolder
       .add(this.params, "startSaturation", 0, 100)
       .name("Start Saturation")
-      .onChange(() => this.updateGradient());
+      .onChange(() => this.updateColorOverlay());
     colorFolder
       .add(this.params, "startLightness", 0, 100)
       .name("Start Lightness")
-      .onChange(() => this.updateGradient());
+      .onChange(() => this.updateColorOverlay());
     colorFolder
       .add(this.params, "startOpacity", 0, 1)
       .name("Start Opacity")
-      .onChange(() => this.updateGradient());
+      .onChange(() => this.updateColorOverlay());
     colorFolder
       .add(this.params, "midHue", 0, 360)
       .name("Middle Hue")
-      .onChange(() => this.updateGradient());
+      .onChange(() => this.updateColorOverlay());
     colorFolder
       .add(this.params, "midSaturation", 0, 100)
       .name("Middle Saturation")
-      .onChange(() => this.updateGradient());
+      .onChange(() => this.updateColorOverlay());
     colorFolder
       .add(this.params, "midLightness", 0, 100)
       .name("Middle Lightness")
-      .onChange(() => this.updateGradient());
+      .onChange(() => this.updateColorOverlay());
     colorFolder
       .add(this.params, "midOpacity", 0, 1)
       .name("Middle Opacity")
-      .onChange(() => this.updateGradient());
+      .onChange(() => this.updateColorOverlay());
     colorFolder
       .add(this.params, "endHue", 0, 360)
       .name("End Hue")
-      .onChange(() => this.updateGradient());
+      .onChange(() => this.updateColorOverlay());
     colorFolder
       .add(this.params, "endSaturation", 0, 100)
       .name("End Saturation")
-      .onChange(() => this.updateGradient());
+      .onChange(() => this.updateColorOverlay());
     colorFolder
       .add(this.params, "endLightness", 0, 100)
       .name("End Lightness")
-      .onChange(() => this.updateGradient());
+      .onChange(() => this.updateColorOverlay());
     colorFolder
       .add(this.params, "endOpacity", 0, 1)
       .name("End Opacity")
-      .onChange(() => this.updateGradient());
+      .onChange(() => this.updateColorOverlay());
+
+    // Color Overlay Controls
+    const overlayFolder = this.gui.addFolder("Color Overlay");
+    overlayFolder
+      .add(this.params, "colorOverlayIntensity", 0, 1)
+      .name("Overlay Intensity")
+      .onChange(() => this.updateColorOverlay());
+    overlayFolder
+      .add(this.params, "colorOverlayBlendMode", {
+        Normal: "normal",
+        Multiply: "multiply",
+        Screen: "screen",
+        Overlay: "overlay",
+        "Soft Light": "soft-light",
+        "Hard Light": "hard-light",
+        "Color Dodge": "color-dodge",
+        "Color Burn": "color-burn",
+        "Linear Dodge": "linear-dodge",
+        "Linear Burn": "linear-burn",
+        "Vivid Light": "vivid-light",
+        "Linear Light": "linear-light",
+        "Pin Light": "pin-light",
+        Difference: "difference",
+        Exclusion: "exclusion",
+        Hue: "hue",
+        Saturation: "saturation",
+        Color: "color",
+        Luminosity: "luminosity",
+      })
+      .name("Blend Mode")
+      .onChange(() => this.updateColorOverlay());
 
     // Animation folder
     const animationFolder = this.gui.addFolder("Animation");
@@ -329,10 +365,39 @@ class PNGGradientController {
     const midColor = `hsla(${this.params.midHue}, ${this.params.midSaturation}%, ${this.params.midLightness}%, ${this.params.midOpacity})`;
     const endColor = `hsla(${this.params.endHue}, ${this.params.endSaturation}%, ${this.params.endLightness}%, ${this.params.endOpacity})`;
 
-    // Apply color overlay using CSS custom properties
-    this.gradientImage.style.setProperty("--start-color", startColor);
-    this.gradientImage.style.setProperty("--mid-color", midColor);
-    this.gradientImage.style.setProperty("--end-color", endColor);
+    console.log("Color Overlay Update:", {
+      startColor,
+      midColor,
+      endColor,
+      intensity: this.params.colorOverlayIntensity,
+      blendMode: this.params.colorOverlayBlendMode,
+    });
+
+    // Create or update a direct overlay div
+    let overlayDiv = document.getElementById("color-overlay");
+    if (!overlayDiv) {
+      overlayDiv = document.createElement("div");
+      overlayDiv.id = "color-overlay";
+      overlayDiv.style.cssText = `
+         position: absolute;
+         top: 0;
+         left: 0;
+         width: 100%;
+         height: 100%;
+         pointer-events: none;
+         z-index: 2;
+       `;
+      this.gradientImage.parentElement.appendChild(overlayDiv);
+    }
+
+    // Apply the gradient directly to the overlay div - starting from top-right
+    overlayDiv.style.background = `radial-gradient(ellipse at top right, ${startColor} 0%, ${midColor} 40%, ${endColor} 70%, transparent 100%)`;
+    overlayDiv.style.mixBlendMode = this.params.colorOverlayBlendMode;
+    overlayDiv.style.opacity = this.params.colorOverlayIntensity;
+
+    // Debug: Check if the element exists and has the pseudo-element
+    console.log("Gradient Image Element:", this.gradientImage);
+    console.log("Overlay Div:", overlayDiv);
   }
 
   updateAnimation() {
@@ -392,7 +457,7 @@ class PNGGradientController {
 
     if (turbulence && displacementMap) {
       turbulence.setAttribute("baseFrequency", this.params.displacementFrequency);
-      turbulence.setAttribute("numOctaves", this.params.displacementOctaves);
+      turbulence.setAttribute("numOctaves", Math.round(this.params.displacementOctaves));
       turbulence.setAttribute("seed", this.params.displacementSeed);
       displacementMap.setAttribute("scale", this.params.displacementScale);
     }
@@ -404,8 +469,8 @@ class PNGGradientController {
 
     if (travelingTurbulence && travelingDisplacementMap) {
       travelingTurbulence.setAttribute("baseFrequency", 0.05 * this.params.travelingDisplaceSpeed);
-      travelingTurbulence.setAttribute("numOctaves", 2);
-      travelingTurbulence.setAttribute("seed", 2);
+      travelingTurbulence.setAttribute("numOctaves", Math.round(2));
+      travelingTurbulence.setAttribute("seed", Math.round(2));
       travelingDisplacementMap.setAttribute("scale", this.params.travelingDisplaceScale);
     }
   }

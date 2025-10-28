@@ -1,0 +1,27 @@
+/* Canvas Gradient Styles */
+#mesh {
+  position: fixed;
+  top: -50%;
+  right: -50%;
+  width: 200%;
+  height: 200%;
+  z-index: 10;
+  transform: translate(25%, 25%);
+  animation: canvas-displace 6s ease-in-out infinite;
+}
+
+@keyframes canvas-displace {
+  0%,
+  100% {
+    transform: translate(25%, 25%) translateX(0px) translateY(0px);
+  }
+  25% {
+    transform: translate(25%, 25%) translateX(2px) translateY(-1px);
+  }
+  50% {
+    transform: translate(25%, 25%) translateX(-1px) translateY(2px);
+  }
+  75% {
+    transform: translate(25%, 25%) translateX(1px) translateY(-2px);
+  }
+}

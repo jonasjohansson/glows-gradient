@@ -1,0 +1,186 @@
+/* Gradient PNG Styles */
+.gradient-png-container {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 100vw;
+  height: 100%;
+  z-index: 10;
+  overflow: visible;
+}
+
+.gradient-png {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.gradient-png::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    135deg,
+    var(--start-color, hsla(15, 60%, 25%, 0.9)) 0%,
+    var(--mid-color, hsla(30, 75%, 55%, 0.8)) 50%,
+    var(--end-color, hsla(280, 65%, 70%, 0.7)) 100%
+  );
+  mix-blend-mode: multiply;
+  opacity: 0.3;
+  pointer-events: none;
+}
+
+/* Animation keyframes */
+@keyframes gradient-float {
+  0%,
+  100% {
+    transform: translateY(0px) scale(1);
+  }
+  50% {
+    transform: translateY(-5px) scale(1.02);
+  }
+}
+
+@keyframes gradient-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+@keyframes gradient-shift {
+  0% {
+    filter: hue-rotate(0deg);
+  }
+  25% {
+    filter: hue-rotate(10deg);
+  }
+  50% {
+    filter: hue-rotate(0deg);
+  }
+  75% {
+    filter: hue-rotate(-10deg);
+  }
+  100% {
+    filter: hue-rotate(0deg);
+  }
+}
+
+@keyframes gradient-blob {
+  0%,
+  100% {
+    transform: translateX(0px) translateY(0px) scale(1) rotate(0deg);
+    border-radius: 50% 40% 60% 30%;
+  }
+  20% {
+    transform: translateX(3px) translateY(-2px) scale(1.02) rotate(1deg);
+    border-radius: 40% 50% 30% 60%;
+  }
+  40% {
+    transform: translateX(-2px) translateY(4px) scale(1.01) rotate(-0.5deg);
+    border-radius: 60% 30% 50% 40%;
+  }
+  60% {
+    transform: translateX(4px) translateY(-1px) scale(1.03) rotate(0.8deg);
+    border-radius: 30% 60% 40% 50%;
+  }
+  80% {
+    transform: translateX(-1px) translateY(3px) scale(1.01) rotate(-0.3deg);
+    border-radius: 50% 30% 60% 40%;
+  }
+}
+
+@keyframes gradient-flow {
+  0%,
+  100% {
+    transform: translateX(0px) translateY(0px) scaleX(1) scaleY(1);
+  }
+  25% {
+    transform: translateX(2px) translateY(-3px) scaleX(1.05) scaleY(0.98);
+  }
+  50% {
+    transform: translateX(-1px) translateY(2px) scaleX(0.98) scaleY(1.03);
+  }
+  75% {
+    transform: translateX(3px) translateY(-1px) scaleX(1.02) scaleY(0.99);
+  }
+}
+
+@keyframes gradient-organic {
+  0%,
+  100% {
+    transform: translateX(0px) translateY(0px) scale(1) rotate(0deg);
+    filter: hue-rotate(0deg);
+  }
+  15% {
+    transform: translateX(2px) translateY(-1px) scale(1.01) rotate(0.3deg);
+    filter: hue-rotate(2deg);
+  }
+  30% {
+    transform: translateX(-1px) translateY(3px) scale(1.02) rotate(-0.2deg);
+    filter: hue-rotate(-1deg);
+  }
+  45% {
+    transform: translateX(3px) translateY(-2px) scale(1.01) rotate(0.5deg);
+    filter: hue-rotate(3deg);
+  }
+  60% {
+    transform: translateX(-2px) translateY(1px) scale(1.03) rotate(-0.3deg);
+    filter: hue-rotate(-2deg);
+  }
+  75% {
+    transform: translateX(1px) translateY(-3px) scale(1.01) rotate(0.4deg);
+    filter: hue-rotate(1deg);
+  }
+  90% {
+    transform: translateX(-1px) translateY(2px) scale(1.02) rotate(-0.1deg);
+    filter: hue-rotate(-1deg);
+  }
+}
+
+@keyframes gradient-hue-cycle {
+  0% {
+    filter: hue-rotate(0deg);
+  }
+  25% {
+    filter: hue-rotate(90deg);
+  }
+  50% {
+    filter: hue-rotate(180deg);
+  }
+  75% {
+    filter: hue-rotate(270deg);
+  }
+  100% {
+    filter: hue-rotate(360deg);
+  }
+}
+
+@keyframes gradient-hue-wave {
+  0%,
+  100% {
+    filter: hue-rotate(0deg);
+  }
+  50% {
+    filter: hue-rotate(30deg);
+  }
+}
+
+@keyframes gradient-displace {
+  0%,
+  100% {
+    filter: url(#displacementFilter);
+  }
+  50% {
+    filter: url(#displacementFilter) brightness(1.1);
+  }
+}

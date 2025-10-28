@@ -1,20 +1,62 @@
-/* Gradient Styles */
-.gradient-overlay {
+/* Gradient Styles with SVG Noise */
+.gradient-container {
   position: fixed;
   top: 0;
   right: 0;
-  width: 100%;
-  height: 100vh;
-  background-color: #0f0f0f;
-  background-image: radial-gradient(at 85% 15%, hsla(241, 83%, 78%, 1) 0px, transparent 50%),
-    radial-gradient(at 75% 25%, hsla(35, 76%, 78%, 1) 0px, transparent 50%),
-    radial-gradient(at 90% 35%, hsla(315, 64%, 64%, 1) 0px, transparent 50%),
-    radial-gradient(at 80% 45%, hsla(261, 89%, 63%, 1) 0px, transparent 50%),
-    radial-gradient(at 70% 20%, hsla(214, 62%, 64%, 1) 0px, transparent 50%),
-    radial-gradient(at 95% 30%, hsla(49, 99%, 67%, 1) 0px, transparent 50%),
-    radial-gradient(at 88% 40%, hsla(127, 84%, 71%, 1) 0px, transparent 50%);
+  width: 60vw;
+  height: 20vh;
   z-index: 10;
-  animation: hue-rotate 12s linear infinite;
+  isolation: isolate;
+}
+
+.gradient-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  /* Organic radial gradients - will be overridden by JavaScript */
+  background: radial-gradient(ellipse 160% 100% at 85% 5%, hsla(280, 60%, 70%, 0.9) 0%, transparent 70%);
+  animation: organic-displace 8s ease-in-out infinite;
+}
+
+.gradient-overlay::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: var(--noise-color, #8c8c8c);
+  filter: url(#noiseFilter);
+  opacity: var(--noise-opacity, 0.3);
+  mix-blend-mode: multiply;
+}
+
+.gradient-overlay-blend {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(ellipse 100% 100% at 50% 50%, rgba(0, 0, 0, 0.1) 0%, transparent 70%);
+  mix-blend-mode: multiply;
+}
+
+@keyframes organic-displace {
+  0%,
+  100% {
+    transform: translateX(0px) translateY(0px);
+  }
+  25% {
+    transform: translateX(2px) translateY(-1px);
+  }
+  50% {
+    transform: translateX(-1px) translateY(2px);
+  }
+  75% {
+    transform: translateX(1px) translateY(-2px);
+  }
 }
 
 @keyframes hue-rotate {

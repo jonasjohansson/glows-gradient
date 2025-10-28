@@ -39,6 +39,25 @@
             scale="0"
             result="displacement" />
         </filter>
+        <filter
+          id="travelingDisplacementFilter"
+          x="-50%"
+          y="-50%"
+          width="200%"
+          height="200%">
+          <feTurbulence
+            id="travelingTurbulence"
+            type="fractalNoise"
+            baseFrequency="0.05"
+            numOctaves="2"
+            result="travelingNoise"
+            seed="2" />
+          <feDisplacementMap
+            in="SourceGraphic"
+            in2="travelingNoise"
+            scale="15"
+            result="travelingDisplacement" />
+        </filter>
       </defs>
     </svg>
 

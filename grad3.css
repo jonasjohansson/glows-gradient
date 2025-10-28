@@ -184,3 +184,26 @@
     filter: url(#displacementFilter) brightness(1.1);
   }
 }
+
+@keyframes gradient-traveling-displace {
+  0% {
+    filter: url(#travelingDisplacementFilter);
+    transform: translateX(0px) translateY(0px);
+  }
+  25% {
+    filter: url(#travelingDisplacementFilter);
+    transform: translateX(20px) translateY(0px);
+  }
+  50% {
+    filter: url(#travelingDisplacementFilter);
+    transform: translateX(0px) translateY(20px);
+  }
+  75% {
+    filter: url(#travelingDisplacementFilter);
+    transform: translateX(-20px) translateY(0px);
+  }
+  100% {
+    filter: url(#travelingDisplacementFilter);
+    transform: translateX(0px) translateY(0px);
+  }
+}

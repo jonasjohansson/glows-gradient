@@ -36,24 +36,29 @@ class PNGGradientController {
       endLightness: 70,
       endOpacity: 0.7,
 
-       // Animation
-       animateFloat: false,
-       animatePulse: true,
-       animateShift: false,
-       animateBlob: false,
-       animateFlow: false,
-       animateOrganic: true,
-       animateHueCycle: false,
-       animateHueWave: false,
-       animateDisplace: false,
-       animateTravelingDisplace: true,
-       animationSpeed: 1.0,
+      // Animation
+      animateFloat: false,
+      animatePulse: true,
+      animateShift: false,
+      animateBlob: false,
+      animateFlow: false,
+      animateOrganic: true,
+      animateHueCycle: false,
+      animateHueWave: false,
+      animateDisplace: false,
+      animateTravelingDisplace: true,
+      animationSpeed: 1.0,
 
       // SVG Displacement
       displacementScale: 0,
       displacementFrequency: 0.02,
       displacementOctaves: 3,
       displacementSeed: 1,
+
+      // Traveling Displacement
+      travelingDisplaceScale: 15,
+      travelingDisplaceSpeed: 1.0,
+      travelingDisplaceDirection: 1,
 
       // Background colors
       mainBg: "#191919",
@@ -69,6 +74,7 @@ class PNGGradientController {
     this.updateBackgrounds();
     this.updateTextColor();
     this.updateDisplacement();
+    this.updateTravelingDisplacement();
 
     // Position GUI on the left
     this.gui.domElement.style.position = "fixed";
@@ -218,6 +224,10 @@ class PNGGradientController {
       .name("SVG Displacement")
       .onChange(() => this.updateAnimation());
     animationFolder
+      .add(this.params, "animateTravelingDisplace")
+      .name("Traveling Displacement")
+      .onChange(() => this.updateAnimation());
+    animationFolder
       .add(this.params, "animationSpeed", 0.1, 3.0)
       .name("Animation Speed")
       .onChange(() => this.updateAnimation());
@@ -240,6 +250,21 @@ class PNGGradientController {
       .add(this.params, "displacementSeed", 1, 10)
       .name("Noise Seed")
       .onChange(() => this.updateDisplacement());
+
+    // Traveling Displacement folder
+    const travelingFolder = this.gui.addFolder("Traveling Displacement");
+    travelingFolder
+      .add(this.params, "travelingDisplaceScale", 0, 50)
+      .name("Displacement Scale")
+      .onChange(() => this.updateTravelingDisplacement());
+    travelingFolder
+      .add(this.params, "travelingDisplaceSpeed", 0.1, 3.0)
+      .name("Travel Speed")
+      .onChange(() => this.updateTravelingDisplacement());
+    travelingFolder
+      .add(this.params, "travelingDisplaceDirection", { "Left to Right": 1, "Right to Left": -1, "Top to Bottom": 2, "Bottom to Top": -2 })
+      .name("Direction")
+      .onChange(() => this.updateTravelingDisplacement());
 
     // Background folder
     const backgroundFolder = this.gui.addFolder("Background");
@@ -352,6 +377,10 @@ class PNGGradientController {
       animations.push(`gradient-displace ${6 / this.params.animationSpeed}s ease-in-out infinite`);
     }
 
+    if (this.params.animateTravelingDisplace) {
+      animations.push(`gradient-traveling-displace ${8 / this.params.animationSpeed}s ease-in-out infinite`);
+    }
+
     if (animations.length > 0) {
       this.gradientImage.style.animation = animations.join(", ");
     }
@@ -366,6 +395,18 @@ class PNGGradientController {
       turbulence.setAttribute("numOctaves", this.params.displacementOctaves);
       turbulence.setAttribute("seed", this.params.displacementSeed);
       displacementMap.setAttribute("scale", this.params.displacementScale);
+    }
+  }
+
+  updateTravelingDisplacement() {
+    const travelingTurbulence = document.getElementById("travelingTurbulence");
+    const travelingDisplacementMap = document.querySelector("#travelingDisplacementFilter feDisplacementMap");
+
+    if (travelingTurbulence && travelingDisplacementMap) {
+      travelingTurbulence.setAttribute("baseFrequency", 0.05 * this.params.travelingDisplaceSpeed);
+      travelingTurbulence.setAttribute("numOctaves", 2);
+      travelingTurbulence.setAttribute("seed", 2);
+      travelingDisplacementMap.setAttribute("scale", this.params.travelingDisplaceScale);
     }
   }
 
@@ -405,7 +446,7 @@ class PNGGradientController {
         endLightness: 70,
         endOpacity: 0.7,
         animateFloat: false,
-        animatePulse: false,
+        animatePulse: true,
         animateShift: false,
         animateBlob: false,
         animateFlow: false,
@@ -413,11 +454,15 @@ class PNGGradientController {
         animateHueCycle: false,
         animateHueWave: false,
         animateDisplace: false,
+        animateTravelingDisplace: true,
         animationSpeed: 1.0,
         displacementScale: 0,
         displacementFrequency: 0.02,
         displacementOctaves: 3,
         displacementSeed: 1,
+        travelingDisplaceScale: 15,
+        travelingDisplaceSpeed: 1.0,
+        travelingDisplaceDirection: 1,
         mainBg: "#191919",
         footerBg: "#0f0f0f",
         textColor: "#f7f7f7",

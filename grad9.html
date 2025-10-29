@@ -521,10 +521,10 @@
             // Calculate distance from center
             float dist = length(p);
             
-            // Base blob radius - slightly different for layer 2
-            float baseRadius = 280.0;
+            // Base blob radius - similar size to layer 1
+            float baseRadius = 300.0;
             
-            // Add noise-based wave displacement - use blobNoise2 for different shape
+            // Add noise-based wave displacement - use blobNoise2 for different organic shape
             float noise = blobNoise2(p * u_noiseScale, u_time * u_flowSpeed);
             float waveDisplacement = noise * u_waveHeight;
             
@@ -937,8 +937,9 @@
         layer2Folder.add(params2, "noiseScale", 0.1, 3.0, 0.1).name("Noise Scale");
         layer2Folder.add(params2, "waveHeight", 0, 150, 1).name("Wave Height");
 
-        // Blending mode
-        gui
+        // Blending mode between the two shapes - prominent placement
+        const blendFolder = gui.addFolder("Layer Blending");
+        blendFolder
           .add(params, "blendMode", blendModes)
           .name("Blend Mode")
           .onChange(() => {

@@ -523,7 +523,7 @@ layer2Folder.add(params2, "waveHeight", 0, 150, 1).name("Wave Height");
 function updateBackground() {
   document.body.style.backgroundColor = params.backgroundColor;
   document.querySelector('.stage').style.backgroundColor = params.backgroundColor;
-  const cozyImg = document.getElementById('cozyGrayImg');
+  const cozyImg = document.getElementById('background');
   if (cozyImg) {
     cozyImg.src = `assets/${params.cozyGrayImage}`;
   }

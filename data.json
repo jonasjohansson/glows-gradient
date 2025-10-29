@@ -30,8 +30,8 @@
     "noiseScale": 1,
     "waveHeight": 50,
     "blendMode": "normal",
-    "globalBlur": 35.5,
-    "grainOpacity": 0.64,
+    "globalBlur": 0,
+    "grainOpacity": 0,
     "grainScale": 1,
     "grainBlend": "overlay",
     "backgroundColor": "#191919",
@@ -69,5 +69,5 @@
     "waveHeight": 50
   },
   "blendMode": "normal",
-  "globalBlur": 35.5
+  "globalBlur": 0
 }

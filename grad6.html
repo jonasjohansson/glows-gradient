@@ -31,11 +31,6 @@
         overflow: visible;
       }
 
-      #shapesGroup {
-        filter: blur(0px);
-        transition: filter 0.3s ease;
-      }
-
       use[href="#shapePath"] {
         transform-origin: center;
         transform-box: fill-box;
@@ -216,8 +211,6 @@
           // Path data (stored as initial value)
           pathData:
             "M104,707.88c137.11,131.06,156.81,219.85,226.92,296.15,166.42,181.12,516.68,182.89,738.46,119.23,203.13-58.31,162.62-132.51,469.23-250,177.18-67.9,293.4-82.47,334.62-180.77,29.04-69.26,3.49-138.71-34.62-242.31-28.72-78.07-89.01-235.1-253.85-346.15C1534.34,70.06,1424.01-4.27,1273.23.19c-172.58,5.11-298.28,110.49-350,153.85-99.87,83.73-83.49,117.93-165.38,165.38-95.29,55.22-228.68,73.34-346.15,34.62-154.72-51-194.53-171.81-276.92-150-62.17,16.46-90.97,98.86-111.54,157.69-9.08,25.97-47.39,135.58,0,242.31,22.51,50.7,54.66,78.89,80.77,103.85Z",
-          pathData2:
-            "M80.94,728.19c137.11,131.06,156.81,219.85,226.92,296.15,166.42,181.12,528.22,713.66,750,650,203.13-58.31,151.08-663.28,457.69-780.77,177.18-67.9-210.44,2.15-169.23-96.15,29.04-69.26,507.34-223.32,469.23-326.92-28.72-78.07-89.01-235.1-253.85-346.15-50.43-33.97-160.76-108.31-311.54-103.85-172.58,5.11-298.28,110.49-350,153.85-99.87,83.73-287.34-216.68-369.23-169.23-95.29,55.22-24.83,407.95-142.31,369.23-154.72-51,93.94,139.72,11.54,161.54C338.01,552.34,20.74,323.2.18,382.04c-9.08,25.97,337.22,339.42,384.62,446.15,22.51,50.7-329.96-124.96-303.85-100Z",
         };
 
         const toRGB01 = (hex) => {
@@ -393,70 +386,30 @@
           }
         }
 
-        function updatePath2() {
-          const pathEl = document.getElementById("shapePath2");
-          if (pathEl && params.pathData2.trim()) {
-            try {
-              pathEl.setAttribute("d", params.pathData2);
-            } catch (e) {
-              console.error("Invalid path data:", e);
-              alert("Invalid SVG path data. Please check the syntax.");
-            }
-          }
-        }
-
-        const cf1 = gui.addFolder("Shape 1 Colors (center → edge)");
-        cf1.addColor(params, "stop1_1").name("Stop 1").onChange(updateTables1);
-        cf1.addColor(params, "stop2_1").name("Stop 2").onChange(updateTables1);
-        cf1.addColor(params, "stop3_1").name("Stop 3").onChange(updateTables1);
-        cf1.addColor(params, "stop4_1").name("Stop 4").onChange(updateTables1);
-        cf1.addColor(params, "stop5_1").name("Stop 5").onChange(updateTables1);
-        const sp1 = gui.addFolder("Shape 1 Stop Positions");
-        sp1.add(params, "stopPos1_1", 0, 1, 0.01).name("Stop 1 Position").onChange(updateTables1);
-        sp1.add(params, "stopPos2_1", 0, 1, 0.01).name("Stop 2 Position").onChange(updateTables1);
-        sp1.add(params, "stopPos3_1", 0, 1, 0.01).name("Stop 3 Position").onChange(updateTables1);
-        sp1.add(params, "stopPos4_1", 0, 1, 0.01).name("Stop 4 Position").onChange(updateTables1);
-        sp1.add(params, "stopPos5_1", 0, 1, 0.01).name("Stop 5 Position").onChange(updateTables1);
-        const af1 = gui.addFolder("Shape 1 Alpha");
-        af1.add(params, "centerOpacity1", 0, 1, 0.01).name("Center Opacity").onChange(updateTables1);
-        af1.add(params, "edgeOpacity1", 0, 1, 0.01).name("Edge Opacity").onChange(updateTables1);
-
-        const cf2 = gui.addFolder("Shape 2 Colors (center → edge)");
-        cf2.addColor(params, "stop1_2").name("Stop 1").onChange(updateTables2);
-        cf2.addColor(params, "stop2_2").name("Stop 2").onChange(updateTables2);
-        cf2.addColor(params, "stop3_2").name("Stop 3").onChange(updateTables2);
-        cf2.addColor(params, "stop4_2").name("Stop 4").onChange(updateTables2);
-        cf2.addColor(params, "stop5_2").name("Stop 5").onChange(updateTables2);
-        const sp2 = gui.addFolder("Shape 2 Stop Positions");
-        sp2.add(params, "stopPos1_2", 0, 1, 0.01).name("Stop 1 Position").onChange(updateTables2);
-        sp2.add(params, "stopPos2_2", 0, 1, 0.01).name("Stop 2 Position").onChange(updateTables2);
-        sp2.add(params, "stopPos3_2", 0, 1, 0.01).name("Stop 3 Position").onChange(updateTables2);
-        sp2.add(params, "stopPos4_2", 0, 1, 0.01).name("Stop 4 Position").onChange(updateTables2);
-        sp2.add(params, "stopPos5_2", 0, 1, 0.01).name("Stop 5 Position").onChange(updateTables2);
-        const af2 = gui.addFolder("Shape 2 Alpha");
-        af2.add(params, "centerOpacity2", 0, 1, 0.01).name("Center Opacity").onChange(updateTables2);
-        af2.add(params, "edgeOpacity2", 0, 1, 0.01).name("Edge Opacity").onChange(updateTables2);
-
+        const cf = gui.addFolder("Colors (center → edge)");
+        cf.addColor(params, "stop1").name("Stop 1").onChange(updateTables);
+        cf.addColor(params, "stop2").name("Stop 2").onChange(updateTables);
+        cf.addColor(params, "stop3").name("Stop 3").onChange(updateTables);
+        cf.addColor(params, "stop4").name("Stop 4").onChange(updateTables);
+        cf.addColor(params, "stop5").name("Stop 5").onChange(updateTables);
+        const sp = gui.addFolder("Stop Positions");
+        sp.add(params, "stopPos1", 0, 1, 0.01).name("Stop 1 Position").onChange(updateTables);
+        sp.add(params, "stopPos2", 0, 1, 0.01).name("Stop 2 Position").onChange(updateTables);
+        sp.add(params, "stopPos3", 0, 1, 0.01).name("Stop 3 Position").onChange(updateTables);
+        sp.add(params, "stopPos4", 0, 1, 0.01).name("Stop 4 Position").onChange(updateTables);
+        sp.add(params, "stopPos5", 0, 1, 0.01).name("Stop 5 Position").onChange(updateTables);
+        const af = gui.addFolder("Alpha");
+        af.add(params, "centerOpacity", 0, 1, 0.01).name("Center Opacity").onChange(updateTables);
+        af.add(params, "edgeOpacity", 0, 1, 0.01).name("Edge Opacity").onChange(updateTables);
         gui.add(params, "blur", 50, 400, 1).name("Blur (spread)").onChange(updateBlur);
 
-        const tf1 = gui.addFolder("Shape 1 Transform");
-        tf1.add(params, "positionX1", -2000, 2000, 1).name("Position X").onChange(updateTransform1);
-        tf1.add(params, "positionY1", -2000, 2000, 1).name("Position Y").onChange(updateTransform1);
-        tf1.add(params, "scale1", 0.1, 3, 0.01).name("Scale").onChange(updateTransform1);
-        tf1.add(params, "rotation1", -180, 180, 1).name("Rotation (deg)").onChange(updateTransform1);
-        tf1.add(params, "skewX1", -45, 45, 0.5).name("Skew X (deg)").onChange(updateTransform1);
-        tf1.add(params, "skewY1", -45, 45, 0.5).name("Skew Y (deg)").onChange(updateTransform1);
-
-        const tf2 = gui.addFolder("Shape 2 Transform");
-        tf2.add(params, "positionX2", -2000, 2000, 1).name("Position X").onChange(updateTransform2);
-        tf2.add(params, "positionY2", -2000, 2000, 1).name("Position Y").onChange(updateTransform2);
-        tf2.add(params, "scale2", 0.1, 3, 0.01).name("Scale").onChange(updateTransform2);
-        tf2.add(params, "rotation2", -180, 180, 1).name("Rotation (deg)").onChange(updateTransform2);
-        tf2.add(params, "skewX2", -45, 45, 0.5).name("Skew X (deg)").onChange(updateTransform2);
-        tf2.add(params, "skewY2", -45, 45, 0.5).name("Skew Y (deg)").onChange(updateTransform2);
-
-        const bf = gui.addFolder("Blob Effect");
-        bf.add(params, "blobBlur", 0, 200, 1).name("Blob Blur").onChange(updateBlobBlur);
+        const tf = gui.addFolder("Transform");
+        tf.add(params, "positionX", -2000, 2000, 1).name("Position X").onChange(updateTransform);
+        tf.add(params, "positionY", -2000, 2000, 1).name("Position Y").onChange(updateTransform);
+        tf.add(params, "scale", 0.1, 3, 0.01).name("Scale").onChange(updateTransform);
+        tf.add(params, "rotation", -180, 180, 1).name("Rotation (deg)").onChange(updateTransform);
+        tf.add(params, "skewX", -45, 45, 0.5).name("Skew X (deg)").onChange(updateTransform);
+        tf.add(params, "skewY", -45, 45, 0.5).name("Skew Y (deg)").onChange(updateTransform);
 
         const ff = gui.addFolder("Edge Feather");
         ff.add(params, "feather", 0, 150, 1).name("Feather Amount").onChange(updateFeather);
@@ -473,14 +426,12 @@
         df.add(params, "displacementSpeed", 0.001, 0.02, 0.001).name("Animation Speed").onChange(updateDisplacement);
 
         const pathf = gui.addFolder("Shape Path");
-        const pathController = pathf.add(params, "pathData").name("Shape 1 Path").onChange(updatePath);
-        pathf.add({ update: () => updatePath() }, "update").name("Update Shape 1");
-        const pathController2 = pathf.add(params, "pathData2").name("Shape 2 Path").onChange(updatePath2);
-        pathf.add({ update: () => updatePath2() }, "update").name("Update Shape 2");
+        const pathController = pathf.add(params, "pathData").name("Path Data (SVG d attribute)");
+        pathController.onChange(updatePath);
+        pathf.add({ update: () => updatePath() }, "update").name("Update Shape");
 
-        // Store initial paths on load
+        // Store initial path on load
         params.pathData = document.getElementById("shapePath")?.getAttribute("d") || params.pathData;
-        params.pathData2 = document.getElementById("shapePath2")?.getAttribute("d") || params.pathData2;
 
         // Position GUI on the left
         setTimeout(() => {
@@ -490,16 +441,12 @@
           gui.domElement.style.zIndex = "1000";
         }, 100);
 
-        updateTables1();
-        updateTables2();
+        updateTables();
         updateBlur();
-        updateTransform1();
-        updateTransform2();
+        updateTransform();
         updateFeather();
         updateEffects();
         updateDisplacement();
-        updatePath2();
-        updateBlobBlur();
       </script>
     </div>
   </body>

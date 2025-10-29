@@ -427,6 +427,7 @@
           grainPositionY: 0,
           // Animation
           animate: false,
+          animationSpeed: 1.0,
           animationIntensity: 5,
           animationRandomness: 1.0,
           // Feather control
@@ -879,7 +880,7 @@
 
           if (params.animate) {
             function animate() {
-              animationTime += 0.01;
+              animationTime += 0.01 * (params.animationSpeed || 1.0);
 
               // Randomness factor - uses additional wave frequencies for smooth randomness
               const randomness = params.animationRandomness;
@@ -1011,8 +1012,15 @@
 
         const af = gui.addFolder("Animation");
         af.add(params, "animate").name("Enable Animation").onChange(updateAnimation);
+        af.add(params, "animationSpeed", 0, 5, 0.1)
+          .name("Speed")
+          .onChange(() => {
+            if (params.animate) {
+              // Animation will update automatically
+            }
+          });
         af.add(params, "animationIntensity", 0, 20, 0.1)
-          .name("Intensity")
+          .name("Strength")
           .onChange(() => {
             if (params.animate) {
               // Animation will update automatically
@@ -1123,6 +1131,192 @@
           gui.domElement.style.left = "20px";
           gui.domElement.style.zIndex = "1000";
         }, 100);
+
+        // Preset management
+        const PRESET_STORAGE_KEY = "glowsGradientPresets";
+        const LAST_PRESET_KEY = "glowsGradientLastPreset";
+
+        function savePresets() {
+          try {
+            const presets = JSON.parse(localStorage.getItem(PRESET_STORAGE_KEY) || "{}");
+            return presets;
+          } catch (e) {
+            return {};
+          }
+        }
+
+        function savePresetToStorage(presets) {
+          try {
+            localStorage.setItem(PRESET_STORAGE_KEY, JSON.stringify(presets));
+          } catch (e) {
+            console.error("Failed to save preset:", e);
+            alert("Failed to save preset. LocalStorage may be disabled or full.");
+          }
+        }
+
+        function loadPreset(presetName) {
+          const presets = savePresets();
+          if (!presets[presetName]) {
+            alert(`Preset "${presetName}" not found.`);
+            return;
+          }
+
+          const preset = presets[presetName];
+
+          // Restore all parameters
+          Object.keys(params).forEach((key) => {
+            if (preset[key] !== undefined) {
+              params[key] = preset[key];
+            }
+          });
+
+          // Update all visual elements
+          updateTables1();
+          updateTables2();
+          updateBlur();
+          updateTransform1();
+          updateTransform2();
+          updateFeather();
+          updateEffects();
+          updateDisplacement();
+          updatePath();
+          updatePath2();
+          updateBlobBlur();
+          updateBlendModes();
+          updateGrain();
+          updateAnimation();
+
+          // Refresh GUI controllers
+          gui.updateDisplay();
+
+          // Save as last used preset
+          localStorage.setItem(LAST_PRESET_KEY, presetName);
+
+          console.log(`Loaded preset: ${presetName}`);
+        }
+
+        function savePreset(presetName) {
+          if (!presetName || presetName.trim() === "") {
+            alert("Please enter a preset name.");
+            return;
+          }
+
+          const presets = savePresets();
+
+          // Create a deep copy of current params
+          const presetData = {};
+          Object.keys(params).forEach((key) => {
+            presetData[key] = params[key];
+          });
+
+          presets[presetName.trim()] = presetData;
+          savePresetToStorage(presets);
+
+          // Refresh preset list in GUI
+          refreshPresetGUI();
+
+          // Save as last used preset
+          localStorage.setItem(LAST_PRESET_KEY, presetName.trim());
+
+          console.log(`Saved preset: ${presetName}`);
+        }
+
+        function deletePreset(presetName) {
+          if (!confirm(`Delete preset "${presetName}"?`)) {
+            return;
+          }
+
+          const presets = savePresets();
+          delete presets[presetName];
+          savePresetToStorage(presets);
+
+          // Refresh preset list in GUI
+          refreshPresetGUI();
+
+          console.log(`Deleted preset: ${presetName}`);
+        }
+
+        let presetFolder = null;
+        let presetControllers = [];
+
+        function refreshPresetGUI() {
+          // Remove existing preset controllers
+          presetControllers.forEach((ctrl) => {
+            try {
+              ctrl.destroy();
+            } catch (e) {
+              // Controller might already be destroyed
+            }
+          });
+          presetControllers = [];
+
+          const presets = savePresets();
+          const presetNames = Object.keys(presets).sort();
+
+          if (presetNames.length === 0) {
+            // No presets yet
+            if (presetFolder) {
+              presetFolder.children.forEach((child) => {
+                if (child.$name && child.$name.includes("Preset:")) {
+                  try {
+                    child.destroy();
+                  } catch (e) {}
+                }
+              });
+            }
+            return;
+          }
+
+          // Add buttons for each preset
+          presetNames.forEach((presetName) => {
+            const presetObj = {
+              load: () => loadPreset(presetName),
+            };
+
+            const loadCtrl = presetFolder.add(presetObj, "load").name(`📁 ${presetName}`);
+            presetControllers.push(loadCtrl);
+
+            // Add delete button as a separate object
+            const deleteObj = {
+              delete: () => deletePreset(presetName),
+            };
+            const deleteCtrl = presetFolder.add(deleteObj, "delete").name(`🗑️ ${presetName}`);
+            presetControllers.push(deleteCtrl);
+          });
+        }
+
+        // Create preset management folder
+        presetFolder = gui.addFolder("Presets");
+        presetFolder.open(); // Open by default so user can see "Save Current"
+
+        const savePresetObj = {
+          name: "",
+          save: () => {
+            if (savePresetObj.name.trim()) {
+              savePreset(savePresetObj.name);
+              savePresetObj.name = ""; // Clear input
+              gui.updateDisplay();
+            }
+          },
+        };
+
+        presetFolder.add(savePresetObj, "name").name("New Preset Name");
+        presetFolder.add(savePresetObj, "save").name("💾 Save Current");
+
+        // Load last used preset on page load
+        const lastPresetName = localStorage.getItem(LAST_PRESET_KEY);
+        if (lastPresetName) {
+          const presets = savePresets();
+          if (presets[lastPresetName]) {
+            // Small delay to ensure GUI is ready
+            setTimeout(() => {
+              loadPreset(lastPresetName);
+            }, 100);
+          }
+        }
+
+        // Initialize preset list
+        refreshPresetGUI();
 
         updateTables1();
         updateTables2();

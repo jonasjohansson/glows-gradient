@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0" />
+    <title>grad6 – Shape-following gradient</title>
+    <style>
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+        background: #0f0f0f;
+      }
+      .stage {
+        position: fixed;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        overflow: hidden;
+      }
+      svg {
+        width: min(90vw, 1200px);
+        height: auto;
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="stage">
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 1885.76 1161.29">
+        <defs>
+          <path
+            id="shapePath"
+            d="M104,707.88c137.11,131.06,156.81,219.85,226.92,296.15,166.42,181.12,516.68,182.89,738.46,119.23,203.13-58.31,162.62-132.51,469.23-250,177.18-67.9,293.4-82.47,334.62-180.77,29.04-69.26,3.49-138.71-34.62-242.31-28.72-78.07-89.01-235.1-253.85-346.15C1534.34,70.06,1424.01-4.27,1273.23.19c-172.58,5.11-298.28,110.49-350,153.85-99.87,83.73-83.49,117.93-165.38,165.38-95.29,55.22-228.68,73.34-346.15,34.62-154.72-51-194.53-171.81-276.92-150-62.17,16.46-90.97,98.86-111.54,157.69-9.08,25.97-47.39,135.58,0,242.31,22.51,50.7,54.66,78.89,80.77,103.85Z" />
+
+          <!-- Create gradient that follows shape using blur-based distance field -->
+          <filter
+            id="shapeGradient"
+            x="-50%"
+            y="-50%"
+            width="200%"
+            height="200%">
+            <!-- Blur SourceAlpha to create distance field (alpha only) -->
+            <feGaussianBlur
+              in="SourceAlpha"
+              stdDeviation="120"
+              result="dist" />
+
+            <!-- Copy alpha into RGB so we can map colors based on 0..1 distance -->
+            <feColorMatrix
+              in="dist"
+              type="matrix"
+              values="0 0 0 1 0  0 0 0 1 0  0 0 0 1 0  0 0 0 1 0"
+              result="gray" />
+
+            <!-- Rainbow mapping from center → edges using table-based RGB lookups -->
+            <!-- Order (center to edge): red → orange → yellow → green → cyan → blue → magenta
+                 The alpha fades outward so it dissolves into the background. -->
+            <feComponentTransfer
+              in="gray"
+              result="gradient">
+              <!-- R:  red(1) → orange(1) → yellow(1) → green(0) → cyan(0) → blue(0) → magenta(1) -->
+              <feFuncR
+                type="table"
+                tableValues="1 1 1 0 0 0 1" />
+              <!-- G:  red(0) → orange(0.5) → yellow(1) → green(1) → cyan(1) → blue(0) → magenta(0) -->
+              <feFuncG
+                type="table"
+                tableValues="0 0.5 1 1 1 0 0" />
+              <!-- B:  red(0) → orange(0) → yellow(0) → green(0) → cyan(1) → blue(1) → magenta(1) -->
+              <feFuncB
+                type="table"
+                tableValues="0 0 0 0 1 1 1" />
+              <!-- Alpha: full in center, fading to 0 at edge -->
+              <feFuncA
+                type="table"
+                tableValues="1 0.9 0.7 0.5 0.3 0.15 0" />
+            </feComponentTransfer>
+
+            <!-- Apply mask to keep within shape boundaries -->
+            <feComposite
+              in="gradient"
+              in2="SourceAlpha"
+              operator="in" />
+          </filter>
+        </defs>
+
+        <!-- Apply gradient filter -->
+        <use
+          href="#shapePath"
+          fill="white"
+          filter="url(#shapeGradient)" />
+      </svg>
+    </div>
+  </body>
+</html>

@@ -95,10 +95,16 @@ const fragmentCommon = `
   uniform float u_time;
   uniform vec2 u_center;
   uniform float u_scale;
+  uniform float u_scaleX;
+  uniform float u_scaleY;
   uniform float u_blur;
   uniform float u_feather;
   uniform float u_flowSpeed;
   uniform float u_flowAmount;
+  uniform vec2 u_flowDir;
+  uniform float u_edgeInner;
+  uniform float u_edgeOuter;
+  uniform float u_tangentFlow;
   uniform float u_noiseScale;
   uniform float u_waveHeight;
   uniform vec2 u_position;
@@ -194,8 +200,8 @@ const fragmentCommon = `
 `;
 
 const vertexShaderSource = `#version 300 es\n  in vec2 a_position;\n  void main(){ gl_Position = vec4(a_position, 0, 1); }`;
-const fragmentShaderSource = `#version 300 es\n${fragmentCommon}\n  void main(){ vec2 uv = gl_FragCoord.xy; vec2 p = (uv - u_center - u_position) / u_scale; float dist = length(p); float angle = atan(p.y, p.x); float baseRadius = 300.0; float radiusOffset = getBlobRadius(angle); float noise = blobNoise(p * u_noiseScale, u_time * u_flowSpeed); float waveDisplacement = noise * u_waveHeight * 0.3; float blobRadius = baseRadius + radiusOffset + waveDisplacement; float blobDist = dist - blobRadius; float alpha = smoothstep(u_blur, -u_blur, blobDist); float featherAlpha = smoothstep(u_feather, -u_feather, blobDist); alpha = mix(alpha, min(alpha, featherAlpha), step(0.001, u_feather)); alpha = smoothstep5(clamp(alpha, 0.0, 1.0)); vec2 flowOffset = vec2(u_time * u_flowAmount * 10.0, 0.0); float noiseValue = backgroundNoise(p * 0.5 + flowOffset, u_time, 0.0); vec3 color = gradientColor(noiseValue); outColor = vec4(color, alpha); }`;
-const fragmentShaderSource2 = `#version 300 es\n${fragmentCommon}\n  void main(){ vec2 uv = gl_FragCoord.xy; vec2 centeredP = uv - u_center - u_position; vec2 p = centeredP / u_scale; float angle = atan(p.y, p.x); float dist = length(p); float baseRadius = 300.0; float radiusOffset = getBlobRadius(angle); float noise = blobNoise2(p * u_noiseScale, u_time * u_flowSpeed); float waveDisplacement = noise * u_waveHeight * 0.3; float blobRadius = baseRadius + radiusOffset + waveDisplacement; float blobDist = dist - blobRadius; float alpha = smoothstep(u_blur, -u_blur, blobDist); if (u_feather > 0.0) { float featherAlpha = smoothstep(u_feather, -u_feather, blobDist); alpha = min(alpha, featherAlpha); } alpha = smoothstep5(clamp(alpha, 0.0, 1.0)); vec2 flowOffset = vec2(u_time * u_flowAmount * 10.0, 0.0); float noiseValue = backgroundNoise(p * 0.5 + flowOffset, u_time, 0.0); vec3 color = gradientColor(noiseValue); outColor = vec4(color, alpha); }`;
+const fragmentShaderSource = `#version 300 es\n${fragmentCommon}\n  void main(){ vec2 uv = gl_FragCoord.xy; vec2 p = (uv - u_center - u_position) / vec2(u_scaleX, u_scaleY); float dist = length(p); float angle = atan(p.y, p.x); float baseRadius = 300.0; float radiusOffset = getBlobRadius(angle); float noise = blobNoise(p * u_noiseScale, u_time * u_flowSpeed); float waveDisplacement = noise * u_waveHeight * 0.3; float blobRadius = baseRadius + radiusOffset + waveDisplacement; float blobDist = dist - blobRadius; float alpha = smoothstep(u_blur, -u_blur, blobDist); float featherAlpha = smoothstep(u_feather, -u_feather, blobDist); alpha = mix(alpha, min(alpha, featherAlpha), step(0.001, u_feather)); alpha = smoothstep5(clamp(alpha, 0.0, 1.0)); float edgeFactor = smoothstep(u_edgeOuter, u_edgeInner, abs(blobDist)); vec2 tangent = normalize(vec2(-p.y, p.x)); vec2 flowOffset = u_flowDir * (u_time * u_flowAmount * 10.0) + tangent * (u_tangentFlow * u_time * u_flowAmount * 10.0 * edgeFactor); float noiseValue = backgroundNoise(p * 0.5 + flowOffset, u_time, 0.0); vec3 color = gradientColor(noiseValue); outColor = vec4(color, alpha); }`;
+const fragmentShaderSource2 = `#version 300 es\n${fragmentCommon}\n  void main(){ vec2 uv = gl_FragCoord.xy; vec2 centeredP = uv - u_center - u_position; vec2 p = centeredP / vec2(u_scaleX, u_scaleY); float angle = atan(p.y, p.x); float dist = length(p); float baseRadius = 300.0; float radiusOffset = getBlobRadius(angle); float noise = blobNoise2(p * u_noiseScale, u_time * u_flowSpeed); float waveDisplacement = noise * u_waveHeight * 0.3; float blobRadius = baseRadius + radiusOffset + waveDisplacement; float blobDist = dist - blobRadius; float alpha = smoothstep(u_blur, -u_blur, blobDist); if (u_feather > 0.0) { float featherAlpha = smoothstep(u_feather, -u_feather, blobDist); alpha = min(alpha, featherAlpha); } alpha = smoothstep5(clamp(alpha, 0.0, 1.0)); float edgeFactor = smoothstep(u_edgeOuter, u_edgeInner, abs(blobDist)); vec2 tangent = normalize(vec2(-p.y, p.x)); vec2 flowOffset = u_flowDir * (u_time * u_flowAmount * 10.0) + tangent * (u_tangentFlow * u_time * u_flowAmount * 10.0 * edgeFactor); float noiseValue = backgroundNoise(p * 0.5 + flowOffset, u_time, 0.0); vec3 color = gradientColor(noiseValue); outColor = vec4(color, alpha); }`;
 
 (async function main() {
   let data = await loadSettings();
@@ -236,6 +242,9 @@ const fragmentShaderSource2 = `#version 300 es\n${fragmentCommon}\n  void main()
       grainOpacity: 0.0,
       grainScale: 1.0,
       grainBlend: "overlay",
+      edgeInner: 30.0,
+      edgeOuter: 150.0,
+      tangentFlow: 0.5,
     },
     data?.params || {}
   );
@@ -313,10 +322,16 @@ const fragmentShaderSource2 = `#version 300 es\n${fragmentCommon}\n  void main()
   const timeLocation = gl.getUniformLocation(program, "u_time");
   const centerLocation = gl.getUniformLocation(program, "u_center");
   const scaleLocation = gl.getUniformLocation(program, "u_scale");
+  const scaleXLocation = gl.getUniformLocation(program, "u_scaleX");
+  const scaleYLocation = gl.getUniformLocation(program, "u_scaleY");
   const blurLocation = gl.getUniformLocation(program, "u_blur");
   const featherLocation = gl.getUniformLocation(program, "u_feather");
   const flowSpeedLocation = gl.getUniformLocation(program, "u_flowSpeed");
   const flowAmountLocation = gl.getUniformLocation(program, "u_flowAmount");
+  const flowDirLocation = gl.getUniformLocation(program, "u_flowDir");
+  const edgeInnerLocation = gl.getUniformLocation(program, "u_edgeInner");
+  const edgeOuterLocation = gl.getUniformLocation(program, "u_edgeOuter");
+  const tangentFlowLocation = gl.getUniformLocation(program, "u_tangentFlow");
   const noiseScaleLocation = gl.getUniformLocation(program, "u_noiseScale");
   const waveHeightLocation = gl.getUniformLocation(program, "u_waveHeight");
   const positionLocation_uniform = gl.getUniformLocation(program, "u_position");
@@ -337,10 +352,16 @@ const fragmentShaderSource2 = `#version 300 es\n${fragmentCommon}\n  void main()
   const timeLocation2 = gl2.getUniformLocation(program2, "u_time");
   const centerLocation2 = gl2.getUniformLocation(program2, "u_center");
   const scaleLocation2 = gl2.getUniformLocation(program2, "u_scale");
+  const scaleXLocation2 = gl2.getUniformLocation(program2, "u_scaleX");
+  const scaleYLocation2 = gl2.getUniformLocation(program2, "u_scaleY");
   const blurLocation2 = gl2.getUniformLocation(program2, "u_blur");
   const featherLocation2 = gl2.getUniformLocation(program2, "u_feather");
   const flowSpeedLocation2 = gl2.getUniformLocation(program2, "u_flowSpeed");
   const flowAmountLocation2 = gl2.getUniformLocation(program2, "u_flowAmount");
+  const flowDirLocation2 = gl2.getUniformLocation(program2, "u_flowDir");
+  const edgeInnerLocation2 = gl2.getUniformLocation(program2, "u_edgeInner");
+  const edgeOuterLocation2 = gl2.getUniformLocation(program2, "u_edgeOuter");
+  const tangentFlowLocation2 = gl2.getUniformLocation(program2, "u_tangentFlow");
   const noiseScaleLocation2 = gl2.getUniformLocation(program2, "u_noiseScale");
   const waveHeightLocation2 = gl2.getUniformLocation(program2, "u_waveHeight");
   const positionLocation_uniform2 = gl2.getUniformLocation(program2, "u_position");
@@ -412,10 +433,17 @@ const fragmentShaderSource2 = `#version 300 es\n${fragmentCommon}\n  void main()
     gl.uniform1f(timeLocation, currentTime);
     gl.uniform2f(centerLocation, gl.canvas.width / 2, gl.canvas.height / 2);
     gl.uniform1f(scaleLocation, params.scale);
+    gl.uniform1f(scaleXLocation, params.scaleX || params.scale);
+    gl.uniform1f(scaleYLocation, params.scaleY || params.scale);
     gl.uniform1f(blurLocation, params.blur);
     gl.uniform1f(featherLocation, params.feather);
     gl.uniform1f(flowSpeedLocation, params.flowSpeed);
     gl.uniform1f(flowAmountLocation, params.flowAmount);
+    const angleRad = ((params.flowAngle || 0) * Math.PI) / 180;
+    gl.uniform2f(flowDirLocation, Math.cos(angleRad), Math.sin(angleRad));
+    gl.uniform1f(edgeInnerLocation, params.edgeInner || 30.0);
+    gl.uniform1f(edgeOuterLocation, params.edgeOuter || 150.0);
+    gl.uniform1f(tangentFlowLocation, params.tangentFlow || 0.5);
     gl.uniform1f(noiseScaleLocation, params.noiseScale);
     gl.uniform1f(waveHeightLocation, params.waveHeight);
     gl.uniform2f(positionLocation_uniform, params.positionX, params.positionY);
@@ -450,10 +478,17 @@ const fragmentShaderSource2 = `#version 300 es\n${fragmentCommon}\n  void main()
     gl2.uniform1f(timeLocation2, currentTime);
     gl2.uniform2f(centerLocation2, gl2.canvas.width / 2, gl2.canvas.height / 2);
     gl2.uniform1f(scaleLocation2, params2.scale);
+    gl2.uniform1f(scaleXLocation2, params2.scaleX || params2.scale);
+    gl2.uniform1f(scaleYLocation2, params2.scaleY || params2.scale);
     gl2.uniform1f(blurLocation2, params2.blur);
     gl2.uniform1f(featherLocation2, params2.feather);
     gl2.uniform1f(flowSpeedLocation2, params2.flowSpeed);
     gl2.uniform1f(flowAmountLocation2, params2.flowAmount);
+    const angleRad2 = ((params2.flowAngle || 0) * Math.PI) / 180;
+    gl2.uniform2f(flowDirLocation2, Math.cos(angleRad2), Math.sin(angleRad2));
+    gl2.uniform1f(edgeInnerLocation2, params.edgeInner || 30.0);
+    gl2.uniform1f(edgeOuterLocation2, params.edgeOuter || 150.0);
+    gl2.uniform1f(tangentFlowLocation2, params.tangentFlow || 0.5);
     gl2.uniform1f(noiseScaleLocation2, params2.noiseScale);
     gl2.uniform1f(waveHeightLocation2, params2.waveHeight);
     gl2.uniform2f(positionLocation_uniform2, params2.positionX, params2.positionY);

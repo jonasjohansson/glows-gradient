@@ -41,12 +41,28 @@
       #blobCanvas2 {
         z-index: 2;
       }
+
+      #grainOverlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 3;
+        pointer-events: none;
+        opacity: 0;
+        background-image: url("grain2.jpeg");
+        background-size: 200px 200px;
+        background-repeat: repeat;
+        mix-blend-mode: overlay;
+      }
     </style>
   </head>
   <body>
     <div class="stage">
       <canvas id="blobCanvas"></canvas>
       <canvas id="blobCanvas2"></canvas>
+      <div id="grainOverlay"></div>
       <script type="module">
         import GUI from "https://cdn.jsdelivr.net/npm/lil-gui@0.21/+esm";
 
@@ -207,7 +223,7 @@
           
           ${simplexNoiseSource}
           
-          // Stacked noise for blob boundary
+          // Stacked noise for blob boundary - Layer 1 (larger, smoother waves)
           float blobNoise(vec2 p, float time) {
             const float L = 0.0018;
             const float S = 0.04;
@@ -218,6 +234,23 @@
             noise += snoise2D(p * (L / 1.30) + vec2(F * time * 1.26, time * S * 1.26)) * 1.15;
             noise += snoise2D(p * (L / 1.86) + vec2(F * time * 1.09, time * S * 1.09)) * 0.60;
             noise += snoise2D(p * (L / 3.25) + vec2(F * time * 0.89, time * S * 0.89)) * 0.40;
+            
+            return noise;
+          }
+
+          // Stacked noise for blob boundary - Layer 2 (different pattern, more organic)
+          float blobNoise2(vec2 p, float time) {
+            const float L = 0.0022;  // Slightly different base frequency
+            const float S = 0.05;    // Different speed
+            const float F = 0.038;   // Different flow amount
+            
+            float noise = 0.0;
+            // Different wave combinations for distinct shape
+            noise += snoise2D(p * (L / 1.15) + vec2(-F * time * 0.8, time * S * 0.9)) * 1.0;  // Reversed flow
+            noise += snoise2D(p * (L / 1.50) + vec2(F * time * 1.4, -time * S * 1.1)) * 0.90; // Opposing direction
+            noise += snoise2D(p * (L / 2.10) + vec2(F * time * 0.7, time * S * 1.3)) * 0.70;
+            noise += snoise2D(p * (L / 3.80) + vec2(-F * time * 1.2, time * S * 0.8)) * 0.50;
+            noise += snoise2D(p * (L / 5.50) + vec2(F * time * 0.6, -time * S * 1.5)) * 0.35; // Extra layer for more detail
             
             return noise;
           }
@@ -365,8 +398,168 @@
           throw new Error("WebGL not supported for second canvas");
         }
 
+        // Create separate fragment shader for layer 2 that uses blobNoise2
+        const fragmentShaderSource2 = `#version 300 es
+          precision highp float;
+          
+          out vec4 outColor;
+          
+          uniform vec2 u_resolution;
+          uniform float u_time;
+          uniform vec2 u_center;
+          uniform float u_scale;
+          uniform float u_blur;
+          uniform float u_feather;
+          uniform float u_flowSpeed;
+          uniform float u_flowAmount;
+          uniform float u_noiseScale;
+          uniform float u_waveHeight;
+          uniform vec2 u_position;
+          uniform vec3 u_colorStop1;
+          uniform vec3 u_colorStop2;
+          uniform vec3 u_colorStop3;
+          uniform vec3 u_colorStop4;
+          uniform vec3 u_colorStop5;
+          uniform float u_stopPos1;
+          uniform float u_stopPos2;
+          uniform float u_stopPos3;
+          uniform float u_stopPos4;
+          uniform float u_stopPos5;
+          
+          ${simplexNoiseSource}
+          
+          // Stacked noise for blob boundary - Layer 1 (larger, smoother waves)
+          float blobNoise(vec2 p, float time) {
+            const float L = 0.0018;
+            const float S = 0.04;
+            const float F = 0.043;
+            
+            float noise = 0.0;
+            noise += snoise2D(p * (L / 1.00) + vec2(F * time, 0.0)) * 0.85;
+            noise += snoise2D(p * (L / 1.30) + vec2(F * time * 1.26, time * S * 1.26)) * 1.15;
+            noise += snoise2D(p * (L / 1.86) + vec2(F * time * 1.09, time * S * 1.09)) * 0.60;
+            noise += snoise2D(p * (L / 3.25) + vec2(F * time * 0.89, time * S * 0.89)) * 0.40;
+            
+            return noise;
+          }
+
+          // Stacked noise for blob boundary - Layer 2 (different pattern, more organic)
+          float blobNoise2(vec2 p, float time) {
+            const float L = 0.0022;  // Slightly different base frequency
+            const float S = 0.05;    // Different speed
+            const float F = 0.038;   // Different flow amount
+            
+            float noise = 0.0;
+            // Different wave combinations for distinct shape
+            noise += snoise2D(p * (L / 1.15) + vec2(-F * time * 0.8, time * S * 0.9)) * 1.0;  // Reversed flow
+            noise += snoise2D(p * (L / 1.50) + vec2(F * time * 1.4, -time * S * 1.1)) * 0.90; // Opposing direction
+            noise += snoise2D(p * (L / 2.10) + vec2(F * time * 0.7, time * S * 1.3)) * 0.70;
+            noise += snoise2D(p * (L / 3.80) + vec2(-F * time * 1.2, time * S * 0.8)) * 0.50;
+            noise += snoise2D(p * (L / 5.50) + vec2(F * time * 0.6, -time * S * 1.5)) * 0.35; // Extra layer for more detail
+            
+            return noise;
+          }
+          
+          // Background noise for color mapping
+          float backgroundNoise(vec2 p, float time, float offset) {
+            const float L = 0.0015;
+            const float S = 0.13;
+            const float Y_SCALE = 3.0;
+            const float F = 0.11;
+            
+            float t = time + offset;
+            float x = p.x * L;
+            float y = p.y * L * Y_SCALE;
+            
+            float noise = 0.5;
+            noise += snoise(vec3(x * 1.0 + F * t, y * 1.00, t * S)) * 0.30;
+            noise += snoise(vec3(x * 0.6 + F * t * 0.6, y * 0.85, t * S)) * 0.26;
+            noise += snoise(vec3(x * 0.4 + F * t * 0.8, y * 0.70, t * S)) * 0.22;
+            
+            return clamp(noise, 0.0, 1.0);
+          }
+          
+          // Smoothstep variant (quintic)
+          float smoothstep5(float t) {
+            return t * t * t * (t * (6.0 * t - 15.0) + 10.0);
+          }
+          
+          // Color gradient mapping with customizable stops
+          vec3 gradientColor(float t) {
+            vec3 color = u_colorStop1;
+            
+            // Interpolate between color stops based on their positions
+            if (t <= u_stopPos1) {
+              return u_colorStop1;
+            } else if (t <= u_stopPos2) {
+              float range = u_stopPos2 - u_stopPos1;
+              float localT = range > 0.0 ? (t - u_stopPos1) / range : 0.0;
+              return mix(u_colorStop1, u_colorStop2, localT);
+            } else if (t <= u_stopPos3) {
+              float range = u_stopPos3 - u_stopPos2;
+              float localT = range > 0.0 ? (t - u_stopPos2) / range : 0.0;
+              return mix(u_colorStop2, u_colorStop3, localT);
+            } else if (t <= u_stopPos4) {
+              float range = u_stopPos4 - u_stopPos3;
+              float localT = range > 0.0 ? (t - u_stopPos3) / range : 0.0;
+              return mix(u_colorStop3, u_colorStop4, localT);
+            } else if (t <= u_stopPos5) {
+              float range = u_stopPos5 - u_stopPos4;
+              float localT = range > 0.0 ? (t - u_stopPos4) / range : 0.0;
+              return mix(u_colorStop4, u_colorStop5, localT);
+            } else {
+              return u_colorStop5;
+            }
+          }
+          
+          void main() {
+            vec2 uv = gl_FragCoord.xy;
+            // Apply position offset
+            vec2 centeredP = uv - u_center - u_position;
+            vec2 p = centeredP / u_scale;
+            
+            // Calculate distance from center
+            float dist = length(p);
+            
+            // Base blob radius - slightly different for layer 2
+            float baseRadius = 280.0;
+            
+            // Add noise-based wave displacement - use blobNoise2 for different shape
+            float noise = blobNoise2(p * u_noiseScale, u_time * u_flowSpeed);
+            float waveDisplacement = noise * u_waveHeight;
+            
+            // Calculate blob boundary
+            // blobDist < 0 means inside blob, > 0 means outside
+            float blobDist = dist - (baseRadius + waveDisplacement);
+            
+            // Calculate alpha: 1.0 inside blob, 0.0 outside
+            // Main blur for overall shape
+            float alpha = smoothstep(u_blur, -u_blur, blobDist);
+            
+            // Apply feather for additional edge softness
+            if (u_feather > 0.0) {
+              float featherAlpha = smoothstep(u_feather, -u_feather, blobDist);
+              alpha = min(alpha, featherAlpha);
+            }
+            
+            // Apply smoothstep5 for smoother edges
+            alpha = smoothstep5(clamp(alpha, 0.0, 1.0));
+            
+            // Calculate gradient color based on noise
+            // This creates the flowing, animated gradient
+            vec2 flowOffset = vec2(u_time * u_flowAmount * 10.0, 0.0);
+            float noiseValue = backgroundNoise(p * 0.5 + flowOffset, u_time, 0.0);
+            vec3 color = gradientColor(noiseValue);
+            
+            // Apply alpha to mask the gradient to the blob shape
+            // Areas outside the blob will have alpha = 0 (transparent)
+            // Color stays at full brightness, alpha controls transparency
+            outColor = vec4(color, alpha);
+          }
+        `;
+
         const vertexShader2 = createShader(gl2, gl2.VERTEX_SHADER, vertexShaderSource);
-        const fragmentShader2 = createShader(gl2, gl2.FRAGMENT_SHADER, fragmentShaderSource);
+        const fragmentShader2 = createShader(gl2, gl2.FRAGMENT_SHADER, fragmentShaderSource2);
         const program2 = createProgram(gl2, vertexShader2, fragmentShader2);
 
         if (!program2) {
@@ -438,20 +631,20 @@
 
         // Parameters for layer 1
         const params = {
-          // Gradient colors - based on the warm gradient image
-          colorStop1: "#2A2A3A", // Dark blue-grey (top-left)
-          colorStop2: "#6A80A0", // Lighter, desaturated blue (mid-left)
-          colorStop3: "#804060", // Muted purple/reddish-brown (center)
-          colorStop4: "#D06020", // Vibrant orange (mid-right)
-          colorStop5: "#F0C000", // Luminous golden yellow (bottom-right)
+          // Gradient colors - based on the image (yellow → sky blue → orange → reddish-orange)
+          colorStop1: "#FFF8A0", // Bright, soft yellow (top-right)
+          colorStop2: "#87CEEB", // Sky blue
+          colorStop3: "#FF8C42", // Warm, rich orange
+          colorStop4: "#FF6B35", // Deeper reddish-orange
+          colorStop5: "#D44226", // Deep red-orange
           stopPos1: 0.0,
-          stopPos2: 0.25,
-          stopPos3: 0.5,
-          stopPos4: 0.75,
+          stopPos2: 0.3,
+          stopPos3: 0.6,
+          stopPos4: 0.85,
           stopPos5: 1.0,
-          // Position
-          positionX: 0,
-          positionY: 0,
+          // Position - top right corner
+          positionX: 400,
+          positionY: 400,
           // Blob settings
           scale: 1.0,
           blur: 80.0,
@@ -464,20 +657,20 @@
 
         // Parameters for layer 2
         const params2 = {
-          // Gradient colors - complementary warm tones
-          colorStop1: "#3A2A2A", // Dark warm grey
-          colorStop2: "#8A6040", // Warm brown
-          colorStop3: "#C08040", // Golden brown
-          colorStop4: "#E0A020", // Bright gold
-          colorStop5: "#FFF080", // Pale yellow
+          // Gradient colors - complementary sky and warm tones
+          colorStop1: "#FFE066", // Soft yellow-gold
+          colorStop2: "#70B8D8", // Lighter sky blue
+          colorStop3: "#FFA366", // Medium orange
+          colorStop4: "#FF7F4D", // Orange-red
+          colorStop5: "#E05A3A", // Deep orange-red
           stopPos1: 0.0,
           stopPos2: 0.25,
-          stopPos3: 0.5,
-          stopPos4: 0.75,
+          stopPos3: 0.55,
+          stopPos4: 0.8,
           stopPos5: 1.0,
-          // Position
-          positionX: 0,
-          positionY: 0,
+          // Position - slightly offset for layered effect
+          positionX: 450,
+          positionY: 450,
           // Blob settings
           scale: 1.0,
           blur: 80.0,
@@ -505,6 +698,9 @@
         ];
         params.blendMode = "normal";
         params.globalBlur = 0.0; // Global blur on top of shader
+        params.grainOpacity = 0.0;
+        params.grainScale = 1.0;
+        params.grainBlend = "overlay";
 
         // Preset management
         const PRESET_STORAGE_KEY = "glowsGradient9Presets";
@@ -762,6 +958,27 @@
           canvas.style.filter = `blur(${blurValue})`;
           canvas2.style.filter = `blur(${blurValue})`;
         }
+
+        // Grain overlay controls
+        const grainFolder = gui.addFolder("Grain/Noise");
+        grainFolder.add(params, "grainOpacity", 0, 1, 0.01).name("Grain Opacity").onChange(updateGrain);
+        grainFolder.add(params, "grainScale", 0.1, 5.0, 0.1).name("Grain Scale").onChange(updateGrain);
+        grainFolder.add(params, "grainBlend", blendModes).name("Grain Blend Mode").onChange(updateGrain);
+
+        const grainOverlay = document.getElementById("grainOverlay");
+
+        function updateGrain() {
+          if (grainOverlay) {
+            grainOverlay.style.opacity = params.grainOpacity;
+            const baseSize = 200;
+            const scaledSize = baseSize / params.grainScale;
+            grainOverlay.style.backgroundSize = `${scaledSize}px ${scaledSize}px`;
+            grainOverlay.style.mixBlendMode = params.grainBlend;
+          }
+        }
+
+        // Initialize grain
+        updateGrain();
 
         // Move preset folder to the top of the GUI
         setTimeout(() => {

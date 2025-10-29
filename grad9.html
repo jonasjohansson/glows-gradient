@@ -221,7 +221,72 @@
           uniform float u_stopPos4;
           uniform float u_stopPos5;
           
+          // Control points for blob shape (10 points - radius offsets)
+          uniform float u_controlPoint0;
+          uniform float u_controlPoint1;
+          uniform float u_controlPoint2;
+          uniform float u_controlPoint3;
+          uniform float u_controlPoint4;
+          uniform float u_controlPoint5;
+          uniform float u_controlPoint6;
+          uniform float u_controlPoint7;
+          uniform float u_controlPoint8;
+          uniform float u_controlPoint9;
+          
           ${simplexNoiseSource}
+          
+          // Bezier interpolation helper (cubic bezier)
+          float cubicBezier(float t, float p0, float p1, float p2, float p3) {
+            float oneMinusT = 1.0 - t;
+            return oneMinusT * oneMinusT * oneMinusT * p0 +
+                   3.0 * oneMinusT * oneMinusT * t * p1 +
+                   3.0 * oneMinusT * t * t * p2 +
+                   t * t * t * p3;
+          }
+          
+          // Get blob radius at a given angle using control points with smooth interpolation
+          float getBlobRadius(float angle) {
+            // Normalize angle to 0-2π
+            angle = mod(angle + 6.28318, 6.28318);
+            
+            // Each control point is spaced at 36° (2π/10)
+            float pointSpacing = 0.628318; // 2π/10 = 36°
+            int pointIndex = int(angle / pointSpacing);
+            float localT = (angle - float(pointIndex) * pointSpacing) / pointSpacing;
+            
+            // Get the four control points for cubic bezier (can't use dynamic array indexing in GLSL)
+            float p0, p1, p2, p3, prevP;
+            
+            // Use switch or if-else to get values based on pointIndex
+            if (pointIndex == 0) {
+              p0 = u_controlPoint0; p1 = u_controlPoint1; p2 = u_controlPoint2; p3 = u_controlPoint3; prevP = u_controlPoint9;
+            } else if (pointIndex == 1) {
+              p0 = u_controlPoint1; p1 = u_controlPoint2; p2 = u_controlPoint3; p3 = u_controlPoint4; prevP = u_controlPoint0;
+            } else if (pointIndex == 2) {
+              p0 = u_controlPoint2; p1 = u_controlPoint3; p2 = u_controlPoint4; p3 = u_controlPoint5; prevP = u_controlPoint1;
+            } else if (pointIndex == 3) {
+              p0 = u_controlPoint3; p1 = u_controlPoint4; p2 = u_controlPoint5; p3 = u_controlPoint6; prevP = u_controlPoint2;
+            } else if (pointIndex == 4) {
+              p0 = u_controlPoint4; p1 = u_controlPoint5; p2 = u_controlPoint6; p3 = u_controlPoint7; prevP = u_controlPoint3;
+            } else if (pointIndex == 5) {
+              p0 = u_controlPoint5; p1 = u_controlPoint6; p2 = u_controlPoint7; p3 = u_controlPoint8; prevP = u_controlPoint4;
+            } else if (pointIndex == 6) {
+              p0 = u_controlPoint6; p1 = u_controlPoint7; p2 = u_controlPoint8; p3 = u_controlPoint9; prevP = u_controlPoint5;
+            } else if (pointIndex == 7) {
+              p0 = u_controlPoint7; p1 = u_controlPoint8; p2 = u_controlPoint9; p3 = u_controlPoint0; prevP = u_controlPoint6;
+            } else if (pointIndex == 8) {
+              p0 = u_controlPoint8; p1 = u_controlPoint9; p2 = u_controlPoint0; p3 = u_controlPoint1; prevP = u_controlPoint7;
+            } else {
+              p0 = u_controlPoint9; p1 = u_controlPoint0; p2 = u_controlPoint1; p3 = u_controlPoint2; prevP = u_controlPoint8;
+            }
+            
+            // Calculate control handles for smooth bezier
+            float cp1 = p0 + (p1 - prevP) * 0.3;
+            float cp2 = p1 - (p2 - p0) * 0.3;
+            
+            // Interpolate using bezier
+            return cubicBezier(localT, p0, cp1, cp2, p1);
+          }
           
           // Stacked noise for blob boundary - Layer 1 (larger, smoother waves)
           float blobNoise(vec2 p, float time) {
@@ -313,19 +378,23 @@
             vec2 centeredP = uv - u_center - u_position;
             vec2 p = centeredP / u_scale;
             
-            // Calculate distance from center
+            // Calculate angle and distance
+            float angle = atan(p.y, p.x);
             float dist = length(p);
             
             // Base blob radius
             float baseRadius = 300.0;
             
-            // Add noise-based wave displacement
-            float noise = blobNoise(p * u_noiseScale, u_time * u_flowSpeed);
-            float waveDisplacement = noise * u_waveHeight;
+            // Get radius offset from control points using bezier interpolation
+            float radiusOffset = getBlobRadius(angle);
             
-            // Calculate blob boundary
-            // blobDist < 0 means inside blob, > 0 means outside
-            float blobDist = dist - (baseRadius + waveDisplacement);
+            // Optional: Add subtle noise for organic feel (but control points are primary)
+            float noise = blobNoise(p * u_noiseScale, u_time * u_flowSpeed);
+            float waveDisplacement = noise * u_waveHeight * 0.3; // Reduce noise influence
+            
+            // Calculate blob boundary using control points + optional noise
+            float blobRadius = baseRadius + radiusOffset + waveDisplacement;
+            float blobDist = dist - blobRadius;
             
             // Calculate alpha: 1.0 inside blob, 0.0 outside
             // Main blur for overall shape
@@ -426,7 +495,72 @@
           uniform float u_stopPos4;
           uniform float u_stopPos5;
           
+          // Control points for blob shape (10 points - radius offsets)
+          uniform float u_controlPoint0;
+          uniform float u_controlPoint1;
+          uniform float u_controlPoint2;
+          uniform float u_controlPoint3;
+          uniform float u_controlPoint4;
+          uniform float u_controlPoint5;
+          uniform float u_controlPoint6;
+          uniform float u_controlPoint7;
+          uniform float u_controlPoint8;
+          uniform float u_controlPoint9;
+          
           ${simplexNoiseSource}
+          
+          // Bezier interpolation helper (cubic bezier)
+          float cubicBezier(float t, float p0, float p1, float p2, float p3) {
+            float oneMinusT = 1.0 - t;
+            return oneMinusT * oneMinusT * oneMinusT * p0 +
+                   3.0 * oneMinusT * oneMinusT * t * p1 +
+                   3.0 * oneMinusT * t * t * p2 +
+                   t * t * t * p3;
+          }
+          
+          // Get blob radius at a given angle using control points with smooth interpolation
+          float getBlobRadius(float angle) {
+            // Normalize angle to 0-2π
+            angle = mod(angle + 6.28318, 6.28318);
+            
+            // Each control point is spaced at 36° (2π/10)
+            float pointSpacing = 0.628318; // 2π/10 = 36°
+            int pointIndex = int(angle / pointSpacing);
+            float localT = (angle - float(pointIndex) * pointSpacing) / pointSpacing;
+            
+            // Get the four control points for cubic bezier (can't use dynamic array indexing in GLSL)
+            float p0, p1, p2, p3, prevP;
+            
+            // Use switch or if-else to get values based on pointIndex
+            if (pointIndex == 0) {
+              p0 = u_controlPoint0; p1 = u_controlPoint1; p2 = u_controlPoint2; p3 = u_controlPoint3; prevP = u_controlPoint9;
+            } else if (pointIndex == 1) {
+              p0 = u_controlPoint1; p1 = u_controlPoint2; p2 = u_controlPoint3; p3 = u_controlPoint4; prevP = u_controlPoint0;
+            } else if (pointIndex == 2) {
+              p0 = u_controlPoint2; p1 = u_controlPoint3; p2 = u_controlPoint4; p3 = u_controlPoint5; prevP = u_controlPoint1;
+            } else if (pointIndex == 3) {
+              p0 = u_controlPoint3; p1 = u_controlPoint4; p2 = u_controlPoint5; p3 = u_controlPoint6; prevP = u_controlPoint2;
+            } else if (pointIndex == 4) {
+              p0 = u_controlPoint4; p1 = u_controlPoint5; p2 = u_controlPoint6; p3 = u_controlPoint7; prevP = u_controlPoint3;
+            } else if (pointIndex == 5) {
+              p0 = u_controlPoint5; p1 = u_controlPoint6; p2 = u_controlPoint7; p3 = u_controlPoint8; prevP = u_controlPoint4;
+            } else if (pointIndex == 6) {
+              p0 = u_controlPoint6; p1 = u_controlPoint7; p2 = u_controlPoint8; p3 = u_controlPoint9; prevP = u_controlPoint5;
+            } else if (pointIndex == 7) {
+              p0 = u_controlPoint7; p1 = u_controlPoint8; p2 = u_controlPoint9; p3 = u_controlPoint0; prevP = u_controlPoint6;
+            } else if (pointIndex == 8) {
+              p0 = u_controlPoint8; p1 = u_controlPoint9; p2 = u_controlPoint0; p3 = u_controlPoint1; prevP = u_controlPoint7;
+            } else {
+              p0 = u_controlPoint9; p1 = u_controlPoint0; p2 = u_controlPoint1; p3 = u_controlPoint2; prevP = u_controlPoint8;
+            }
+            
+            // Calculate control handles for smooth bezier
+            float cp1 = p0 + (p1 - prevP) * 0.3;
+            float cp2 = p1 - (p2 - p0) * 0.3;
+            
+            // Interpolate using bezier
+            return cubicBezier(localT, p0, cp1, cp2, p1);
+          }
           
           // Stacked noise for blob boundary - Layer 1 (larger, smoother waves)
           float blobNoise(vec2 p, float time) {
@@ -518,19 +652,23 @@
             vec2 centeredP = uv - u_center - u_position;
             vec2 p = centeredP / u_scale;
             
-            // Calculate distance from center
+            // Calculate angle and distance
+            float angle = atan(p.y, p.x);
             float dist = length(p);
             
             // Base blob radius - similar size to layer 1
             float baseRadius = 300.0;
             
-            // Add noise-based wave displacement - use blobNoise2 for different organic shape
-            float noise = blobNoise2(p * u_noiseScale, u_time * u_flowSpeed);
-            float waveDisplacement = noise * u_waveHeight;
+            // Get radius offset from control points using bezier interpolation
+            float radiusOffset = getBlobRadius(angle);
             
-            // Calculate blob boundary
-            // blobDist < 0 means inside blob, > 0 means outside
-            float blobDist = dist - (baseRadius + waveDisplacement);
+            // Optional: Add subtle noise for organic feel (but control points are primary)
+            float noise = blobNoise2(p * u_noiseScale, u_time * u_flowSpeed);
+            float waveDisplacement = noise * u_waveHeight * 0.3; // Reduce noise influence
+            
+            // Calculate blob boundary using control points + optional noise
+            float blobRadius = baseRadius + radiusOffset + waveDisplacement;
+            float blobDist = dist - blobRadius;
             
             // Calculate alpha: 1.0 inside blob, 0.0 outside
             // Main blur for overall shape
@@ -599,6 +737,12 @@
         const stopPos4Location = gl.getUniformLocation(program, "u_stopPos4");
         const stopPos5Location = gl.getUniformLocation(program, "u_stopPos5");
 
+        // Control point locations for layer 1
+        const controlPointLocations = [];
+        for (let i = 0; i < 10; i++) {
+          controlPointLocations.push(gl.getUniformLocation(program, `u_controlPoint${i}`));
+        }
+
         // Get locations for layer 2
         const positionLocation2 = gl2.getAttribLocation(program2, "a_position");
         const resolutionLocation2 = gl2.getUniformLocation(program2, "u_resolution");
@@ -623,6 +767,12 @@
         const stopPos4Location2 = gl2.getUniformLocation(program2, "u_stopPos4");
         const stopPos5Location2 = gl2.getUniformLocation(program2, "u_stopPos5");
 
+        // Control point locations for layer 2
+        const controlPointLocations2 = [];
+        for (let i = 0; i < 10; i++) {
+          controlPointLocations2.push(gl2.getUniformLocation(program2, `u_controlPoint${i}`));
+        }
+
         // Helper function to convert hex to RGB
         function hexToRgb(hex) {
           const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
@@ -645,6 +795,18 @@
           // Position - top right corner
           positionX: 400,
           positionY: 400,
+          // Control points - radius offsets at 10 evenly spaced angles (0°, 36°, 72°...)
+          // These control the blob shape. Positive values push outward, negative pull inward
+          controlPoint0: 0.0, // 0°
+          controlPoint1: 20.0, // 36°
+          controlPoint2: 15.0, // 72°
+          controlPoint3: 0.0, // 108°
+          controlPoint4: -10.0, // 144°
+          controlPoint5: -15.0, // 180°
+          controlPoint6: -10.0, // 216°
+          controlPoint7: 0.0, // 252°
+          controlPoint8: 15.0, // 288°
+          controlPoint9: 20.0, // 324°
           // Blob settings
           scale: 1.0,
           blur: 80.0,
@@ -670,6 +832,17 @@
           stopPos5: 1.0,
           // Position - slightly offset for layered effect
           positionX: 450,
+          // Control points - different shape from layer 1
+          controlPoint0: 15.0, // 0°
+          controlPoint1: 10.0, // 36°
+          controlPoint2: 0.0, // 72°
+          controlPoint3: -15.0, // 108°
+          controlPoint4: -20.0, // 144°
+          controlPoint5: -15.0, // 180°
+          controlPoint6: -5.0, // 216°
+          controlPoint7: 10.0, // 252°
+          controlPoint8: 20.0, // 288°
+          controlPoint9: 15.0, // 324°
           positionY: 450,
           // Blob settings
           scale: 1.0,
@@ -909,6 +1082,13 @@
         layer1Folder.add(params, "noiseScale", 0.1, 3.0, 0.1).name("Noise Scale");
         layer1Folder.add(params, "waveHeight", 0, 150, 1).name("Wave Height");
 
+        // Control points folder for Layer 1
+        const controlPointsFolder1 = layer1Folder.addFolder("Control Points");
+        const angleNames = ["0°", "36°", "72°", "108°", "144°", "180°", "216°", "252°", "288°", "324°"];
+        for (let i = 0; i < 10; i++) {
+          controlPointsFolder1.add(params, `controlPoint${i}`, -100, 100, 0.5).name(`Point ${i} (${angleNames[i]})`);
+        }
+
         // Layer 2 folder
         const layer2Folder = gui.addFolder("Layer 2");
         const gradientFolder2 = layer2Folder.addFolder("Gradient Colors");
@@ -936,6 +1116,12 @@
         layer2Folder.add(params2, "flowAmount", 0, 2, 0.01).name("Flow Amount");
         layer2Folder.add(params2, "noiseScale", 0.1, 3.0, 0.1).name("Noise Scale");
         layer2Folder.add(params2, "waveHeight", 0, 150, 1).name("Wave Height");
+
+        // Control points folder for Layer 2
+        const controlPointsFolder2 = layer2Folder.addFolder("Control Points");
+        for (let i = 0; i < 10; i++) {
+          controlPointsFolder2.add(params2, `controlPoint${i}`, -100, 100, 0.5).name(`Point ${i} (${angleNames[i]})`);
+        }
 
         // Blending mode between the two shapes - prominent placement
         const blendFolder = gui.addFolder("Layer Blending");
@@ -1075,6 +1261,11 @@
           gl.uniform1f(stopPos4Location, params.stopPos4);
           gl.uniform1f(stopPos5Location, params.stopPos5);
 
+          // Set control point uniforms for layer 1
+          for (let i = 0; i < 10; i++) {
+            gl.uniform1f(controlPointLocations[i], params[`controlPoint${i}`]);
+          }
+
           gl.clearColor(0, 0, 0, 0);
           gl.clear(gl.COLOR_BUFFER_BIT);
           gl.drawArrays(gl.TRIANGLES, 0, 6);
@@ -1115,6 +1306,11 @@
           gl2.uniform1f(stopPos3Location2, params2.stopPos3);
           gl2.uniform1f(stopPos4Location2, params2.stopPos4);
           gl2.uniform1f(stopPos5Location2, params2.stopPos5);
+
+          // Set control point uniforms for layer 2
+          for (let i = 0; i < 10; i++) {
+            gl2.uniform1f(controlPointLocations2[i], params2[`controlPoint${i}`]);
+          }
 
           gl2.clearColor(0, 0, 0, 0);
           gl2.clear(gl2.COLOR_BUFFER_BIT);

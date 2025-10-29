@@ -21,24 +21,24 @@ class SVGGradientController {
       // Grain settings
       grainColor: "#ffffff",
 
-      // Gradient colors
-      gradient1Color1: "#C85032", // Center color
-      gradient1Color2: "#8B1E3F", // Mid color
-      gradient1Color3: "#4A1A5C", // Outer color
-      gradient1Color4: "#2D1B69", // Edge color
+      // Gradient colors - matching warm to cool gradient
+      gradient1Color1: "#FFD700", // Golden yellow (center)
+      gradient1Color2: "#FF7F00", // Rich orange
+      gradient1Color3: "#E91E63", // Magenta
+      gradient1Color4: "#7B1FA2", // Purple
       // Per-gradient filters
       g1Brightness: 1.0,
       g1Contrast: 1.0,
 
-      gradient2Color1: "#D65A2A", // Center color
-      gradient2Color2: "#A02A4A", // Mid color
-      gradient2Color3: "#6B2A5A", // Outer color
+      gradient2Color1: "#FF6600", // Vibrant orange (center)
+      gradient2Color2: "#FF1493", // Pink/magenta
+      gradient2Color3: "#9C27B0", // Purple
       g2Brightness: 1.0,
       g2Contrast: 1.0,
 
-      gradient3Color1: "#E85A1A", // Center color
-      gradient3Color2: "#B8323A", // Mid color
-      gradient3Color3: "#8B2A4A", // Outer color
+      gradient3Color1: "#FFC107", // Bright yellow (center)
+      gradient3Color2: "#FF9800", // Orange
+      gradient3Color3: "#E91E63", // Magenta
       g3Brightness: 1.0,
       g3Contrast: 1.0,
 

@@ -1315,6 +1315,15 @@
         presetFolder.add(savePresetObj, "name").name("New Preset Name");
         presetFolder.add(savePresetObj, "save").name("💾 Save Current");
 
+        // Move preset folder to the top of the GUI
+        setTimeout(() => {
+          const guiUl = gui.domElement.querySelector("ul");
+          const presetLi = presetFolder.domElement.parentElement;
+          if (guiUl && presetLi && presetLi !== guiUl.firstElementChild) {
+            guiUl.insertBefore(presetLi, guiUl.firstElementChild);
+          }
+        }, 100);
+
         // Load last used preset on page load
         const lastPresetName = localStorage.getItem(LAST_PRESET_KEY);
         if (lastPresetName) {

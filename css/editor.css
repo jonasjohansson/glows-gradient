@@ -1,0 +1,65 @@
+html,
+body {
+  height: 100%;
+  margin: 0;
+  /* allow scrolling */
+  overflow: auto;
+  /* hide scrollbar but keep scrolling */
+  -ms-overflow-style: none; /* IE/Edge */
+  scrollbar-width: none;    /* Firefox */
+  background: #191919;
+}
+
+/* WebKit browsers */
+body::-webkit-scrollbar {
+  display: none;
+}
+.stage {
+  position: relative; /* allow natural page height based on image */
+  background-color: #191919;
+  overflow: visible;
+  /* Ensure stage has scrollable height to host grain overlay */
+  min-height: 2345px; /* native cozy image height */
+}
+#cozyGrayImg {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 1280px; /* native width */
+  height: auto; /* native height (~2345px) */
+  z-index: 0;
+  pointer-events: none;
+}
+canvas {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 1280px;
+  height: 100vh; /* shader area stays viewport height and scrolls away */
+  display: block;
+}
+
+#blobCanvas {
+  z-index: 1;
+}
+
+#blobCanvas2 {
+  z-index: 2;
+}
+
+#grainOverlay {
+  position: absolute;
+  top: 0;
+  right: 0; /* align with canvases */
+  width: 1280px; /* match canvas width */
+  height: 100vh; /* match canvas viewport height */
+  z-index: 3;
+  pointer-events: none;
+  opacity: 0;
+  background-image: url("../assets/grain2.jpeg");
+  background-size: 200px 200px;
+  background-repeat: repeat;
+  mix-blend-mode: overlay;
+}
+
+

@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0" />
+    <title>Gradient Viewer</title>
+    <style>
+      /* Scoped styles for the player to avoid conflicts */
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+        background: #191919;
+      }
+      #_gg_stage {
+        position: relative;
+        min-height: 100vh;
+      }
+      #_gg_canvas1,
+      #_gg_canvas2,
+      #_gg_grain {
+        position: absolute;
+        top: 0;
+        right: 0;
+        width: 1280px;
+        height: 100vh;
+        display: block;
+      }
+      #_gg_canvas1 {
+        z-index: 1;
+      }
+      #_gg_canvas2 {
+        z-index: 2;
+        mix-blend-mode: normal;
+      }
+      #_gg_grain {
+        z-index: 3;
+        pointer-events: none;
+        opacity: 0;
+        background-image: url("assets/grain2.jpeg");
+        background-size: 200px 200px;
+        background-repeat: repeat;
+        mix-blend-mode: overlay;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="_gg_stage">
+      <canvas id="_gg_canvas1"></canvas>
+      <canvas id="_gg_canvas2"></canvas>
+      <div id="_gg_grain"></div>
+    </div>
+    <script
+      type="module"
+      src="js/viewer.js"></script>
+  </body>
+</html>

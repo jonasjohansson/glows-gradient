@@ -12,7 +12,7 @@ body {
 
 body {
   background: var(--bg-color, #000000);
-  background-image: url("cozy - 1291.jpg");
+  background-image: url("../../assets/dummy-gray.jpg");
   background-size: cover;
   background-position: center top;
   background-repeat: no-repeat;

@@ -1,0 +1,69 @@
+/* Gradient Styles with SVG Noise */
+.gradient-container {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 60vw;
+  height: 20vh;
+  z-index: 10;
+  isolation: isolate;
+}
+
+.gradient-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  /* Organic radial gradients - will be overridden by JavaScript */
+  background: radial-gradient(ellipse 160% 100% at 85% 5%, hsla(280, 60%, 70%, 0.9) 0%, transparent 70%);
+  animation: organic-displace 8s ease-in-out infinite;
+}
+
+.gradient-overlay::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: var(--noise-color, #8c8c8c);
+  filter: url(#noiseFilter);
+  opacity: var(--noise-opacity, 0.3);
+  mix-blend-mode: multiply;
+}
+
+.gradient-overlay-blend {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(ellipse 100% 100% at 50% 50%, rgba(0, 0, 0, 0.1) 0%, transparent 70%);
+  mix-blend-mode: multiply;
+}
+
+@keyframes organic-displace {
+  0%,
+  100% {
+    transform: translateX(0px) translateY(0px);
+  }
+  25% {
+    transform: translateX(2px) translateY(-1px);
+  }
+  50% {
+    transform: translateX(-1px) translateY(2px);
+  }
+  75% {
+    transform: translateX(1px) translateY(-2px);
+  }
+}
+
+@keyframes hue-rotate {
+  0% {
+    filter: hue-rotate(0deg);
+  }
+  100% {
+    filter: hue-rotate(360deg);
+  }
+}

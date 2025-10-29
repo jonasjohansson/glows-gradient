@@ -55,9 +55,33 @@
             y="-600"
             width="3000"
             height="2400">
+            <!-- Organic displacement using turbulence -->
+            <feTurbulence
+              id="displaceTurbulence"
+              type="fractalNoise"
+              baseFrequency="0.01 0.01"
+              numOctaves="5"
+              result="turbulence"
+              seed="1" />
+            <feDisplacementMap
+              id="displaceMap"
+              in="SourceGraphic"
+              in2="turbulence"
+              scale="0"
+              xChannelSelector="R"
+              yChannelSelector="G"
+              result="displaced" />
+
+            <!-- Extract alpha from displaced shape -->
+            <feColorMatrix
+              in="displaced"
+              type="matrix"
+              values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0"
+              result="displacedAlpha" />
+
             <!-- Blur SourceAlpha to create distance field: center is bright (1), edges fade to dark (0) -->
             <feGaussianBlur
-              in="SourceAlpha"
+              in="displacedAlpha"
               stdDeviation="200"
               result="blurred"
               id="dfBlur" />
@@ -104,10 +128,10 @@
                 id="funcA" />
             </feComponentTransfer>
 
-            <!-- Extra feather: blur the original alpha and use as a soft edge mask -->
+            <!-- Extra feather: blur the displaced alpha and use as a soft edge mask -->
             <feGaussianBlur
               id="featherBlur"
-              in="SourceAlpha"
+              in="displacedAlpha"
               stdDeviation="40"
               result="featherMask" />
             <feComposite
@@ -172,6 +196,12 @@
           // Visual effects
           brightness: 1.0,
           contrast: 1.0,
+          // Displacement controls
+          displacementStrength: 0,
+          displacementFrequency: 0.01,
+          displacementOctaves: 5,
+          displacementAnimated: false,
+          displacementSpeed: 0.005,
           // Path data (stored as initial value)
           pathData:
             "M104,707.88c137.11,131.06,156.81,219.85,226.92,296.15,166.42,181.12,516.68,182.89,738.46,119.23,203.13-58.31,162.62-132.51,469.23-250,177.18-67.9,293.4-82.47,334.62-180.77,29.04-69.26,3.49-138.71-34.62-242.31-28.72-78.07-89.01-235.1-253.85-346.15C1534.34,70.06,1424.01-4.27,1273.23.19c-172.58,5.11-298.28,110.49-350,153.85-99.87,83.73-83.49,117.93-165.38,165.38-95.29,55.22-228.68,73.34-346.15,34.62-154.72-51-194.53-171.81-276.92-150-62.17,16.46-90.97,98.86-111.54,157.69-9.08,25.97-47.39,135.58,0,242.31,22.51,50.7,54.66,78.89,80.77,103.85Z",
@@ -234,6 +264,48 @@
           document.getElementById("brightnessB")?.setAttribute("intercept", String(intercept));
         }
 
+        let displacementAnimationId = null;
+
+        let displacementTime = 0;
+
+        function updateDisplacement() {
+          document.getElementById("displaceMap")?.setAttribute("scale", String(params.displacementStrength));
+          const freq = params.displacementFrequency;
+          document.getElementById("displaceTurbulence")?.setAttribute("baseFrequency", `${freq} ${freq}`);
+          document.getElementById("displaceTurbulence")?.setAttribute("numOctaves", String(params.displacementOctaves));
+
+          // Stop existing animation
+          if (displacementAnimationId) {
+            cancelAnimationFrame(displacementAnimationId);
+            displacementAnimationId = null;
+          }
+
+          // Start animated displacement if enabled - lava lamp style
+          if (params.displacementAnimated && params.displacementStrength > 0) {
+            function animate() {
+              displacementTime += params.displacementSpeed || 0.005;
+              const baseFreq = params.displacementFrequency;
+              const turbEl = document.getElementById("displaceTurbulence");
+              if (turbEl) {
+                // Lava lamp style: slow, smooth, flowing movement
+                // Multiple sine waves at different frequencies for organic flow
+                const wave1 = Math.sin(displacementTime * 0.3) * 0.003;
+                const wave2 = Math.cos(displacementTime * 0.5) * 0.005;
+                const wave3 = Math.sin(displacementTime * 0.7 + 1.5) * 0.002;
+
+                const x = baseFreq + wave1 + wave2;
+                const y = baseFreq + wave3 + Math.cos(displacementTime * 0.4) * 0.004;
+                turbEl.setAttribute("baseFrequency", `${x} ${y}`);
+              }
+              displacementAnimationId = requestAnimationFrame(animate);
+            }
+            animate();
+          } else {
+            // Reset when not animated
+            displacementTime = 0;
+          }
+        }
+
         function updatePath() {
           const pathEl = document.getElementById("shapePath");
           if (pathEl && params.pathData.trim()) {
@@ -272,6 +344,13 @@
         vf.add(params, "brightness", 0, 3, 0.01).name("Brightness").onChange(updateEffects);
         vf.add(params, "contrast", 0, 3, 0.01).name("Contrast").onChange(updateEffects);
 
+        const df = gui.addFolder("Displacement");
+        df.add(params, "displacementStrength", 0, 1000, 5).name("Strength").onChange(updateDisplacement);
+        df.add(params, "displacementFrequency", 0.005, 0.05, 0.001).name("Frequency (lower = smoother)").onChange(updateDisplacement);
+        df.add(params, "displacementOctaves", 1, 8, 1).name("Octaves").onChange(updateDisplacement);
+        df.add(params, "displacementAnimated").name("Lava Lamp (animated)").onChange(updateDisplacement);
+        df.add(params, "displacementSpeed", 0.001, 0.02, 0.001).name("Animation Speed").onChange(updateDisplacement);
+
         const pathf = gui.addFolder("Shape Path");
         const pathController = pathf.add(params, "pathData").name("Path Data (SVG d attribute)");
         pathController.onChange(updatePath);
@@ -293,6 +372,7 @@
         updateTransform();
         updateFeather();
         updateEffects();
+        updateDisplacement();
       </script>
     </div>
   </body>

@@ -17,7 +17,10 @@
       #_gg_stage {
         position: relative;
         min-height: 100vh;
-        isolation: isolate;
+        width: 1280px; /* match canvas width */
+        overflow: hidden; /* clip grain strictly to stage */
+        isolation: isolate; /* confine blend to stage */
+        background: #191919; /* explicit backdrop for blend */
       }
       #_gg_canvas1,
       #_gg_canvas2,

@@ -462,6 +462,8 @@ blendFolder
   .add(params, "blendMode", blendModes)
   .name("Blend Mode")
   .onChange(() => { canvas2.style.mixBlendMode = params.blendMode; });
+blendFolder.add(params, "layerOpacity", 0, 1, 0.01).name("Layer 1 Opacity");
+blendFolder.add(params2, "layerOpacity", 0, 1, 0.01).name("Layer 2 Opacity");
 
 const grainFolder = gui.addFolder("Grain/Noise");
 grainFolder.add(params, "grainOpacity", 0, 1, 0.01).name("Grain Opacity").onChange(updateGrain);
@@ -492,7 +494,6 @@ layer1Folder.add(params, "feather", 0, 150, 1).name("Feather");
 layer1Folder.add(params, "flowSpeed", 0, 1, 0.01).name("Flow Speed");
 layer1Folder.add(params, "flowAmount", 0, 2, 0.01).name("Flow Amount");
 layer1Folder.add(params, "flowAngle", 0, 360, 1).name("Flow Direction (°)");
-layer1Folder.add(params, "layerOpacity", 0, 1, 0.01).name("Layer Opacity");
 layer1Folder.add(params, "noiseScale", 0.1, 3.0, 0.1).name("Noise Scale");
 layer1Folder.add(params, "waveHeight", 0, 150, 1).name("Wave Height");
 
@@ -528,7 +529,6 @@ layer2Folder.add(params2, "feather", 0, 150, 1).name("Feather");
 layer2Folder.add(params2, "flowSpeed", 0, 1, 0.01).name("Flow Speed");
 layer2Folder.add(params2, "flowAmount", 0, 2, 0.01).name("Flow Amount");
 layer2Folder.add(params2, "flowAngle", 0, 360, 1).name("Flow Direction (°)");
-layer2Folder.add(params2, "layerOpacity", 0, 1, 0.01).name("Layer Opacity");
 layer2Folder.add(params2, "noiseScale", 0.1, 3.0, 0.1).name("Noise Scale");
 layer2Folder.add(params2, "waveHeight", 0, 150, 1).name("Wave Height");
 

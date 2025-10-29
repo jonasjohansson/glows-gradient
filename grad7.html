@@ -51,10 +51,13 @@
           <path
             id="shapePath"
             d="M104,707.88c137.11,131.06,156.81,219.85,226.92,296.15,166.42,181.12,516.68,182.89,738.46,119.23,203.13-58.31,162.62-132.51,469.23-250,177.18-67.9,293.4-82.47,334.62-180.77,29.04-69.26,3.49-138.71-34.62-242.31-28.72-78.07-89.01-235.1-253.85-346.15C1534.34,70.06,1424.01-4.27,1273.23.19c-172.58,5.11-298.28,110.49-350,153.85-99.87,83.73-83.49,117.93-165.38,165.38-95.29,55.22-228.68,73.34-346.15,34.62-154.72-51-194.53-171.81-276.92-150-62.17,16.46-90.97,98.86-111.54,157.69-9.08,25.97-47.39,135.58,0,242.31,22.51,50.7,54.66,78.89,80.77,103.85Z" />
+          <path
+            id="shapePath2"
+            d="M1188.54,235.26c180.01,27.4,309.95,168.4,346.15,207.69,78.91,85.63,57.53,105.56,134.62,196.15,154.07,181.08,273.75,141.76,380.77,284.62,88.16,117.68,109.99,281.93,73.08,419.23-55.11,204.96-228.76,303.76-273.08,326.92-274.92,143.71-655.71,33.91-857.69-169.23-128.95-129.69-106.06-218.01-253.85-307.69-148.72-90.25-226.41-33.89-407.69-138.46-54.77-31.59-173.09-101.84-253.85-246.15C51.27,762.35-2.34,652.21.08,504.49,1.14,439.7,4.44,238.24,161.62,104.49,334.43-42.57,560.46,5.21,611.62,16.03c87.77,18.55,154.39,54.12,196.15,80.77" />
 
-          <!-- Create gradient that follows shape using blur-based distance field -->
+          <!-- Create gradient filter for shape 1 -->
           <filter
-            id="shapeGradient"
+            id="shapeGradient1"
             filterUnits="userSpaceOnUse"
             x="-600"
             y="-600"
@@ -115,22 +118,22 @@
               <feFuncR
                 type="table"
                 tableValues="1 1 1 0 0 0 1"
-                id="funcR" />
+                id="funcR1" />
               <!-- G:  red(0) → orange(0.5) → yellow(1) → green(1) → cyan(1) → blue(0) → magenta(0) -->
               <feFuncG
                 type="table"
                 tableValues="0 0.5 1 1 1 0 0"
-                id="funcG" />
+                id="funcG1" />
               <!-- B:  red(0) → orange(0) → yellow(0) → green(0) → cyan(1) → blue(1) → magenta(1) -->
               <feFuncB
                 type="table"
                 tableValues="0 0 0 0 1 1 1"
-                id="funcB" />
+                id="funcB1" />
               <!-- Alpha: keep bright in center, fade gradually to edge -->
               <feFuncA
                 type="table"
                 tableValues="1.0 1.0 0.95 0.85 0.7 0.4 0.0"
-                id="funcA" />
+                id="funcA1" />
             </feComponentTransfer>
 
             <!-- Extra feather: blur the displaced alpha and use as a soft edge mask -->
@@ -153,55 +156,214 @@
                 type="linear"
                 slope="1"
                 intercept="0"
-                id="brightnessR" />
+                id="brightnessR1" />
               <feFuncG
                 type="linear"
                 slope="1"
                 intercept="0"
-                id="brightnessG" />
+                id="brightnessG1" />
               <feFuncB
                 type="linear"
                 slope="1"
                 intercept="0"
-                id="brightnessB" />
+                id="brightnessB1" />
+            </feComponentTransfer>
+          </filter>
+
+          <!-- Create gradient filter for shape 2 (duplicate of shape 1) -->
+          <filter
+            id="shapeGradient2"
+            filterUnits="userSpaceOnUse"
+            x="-600"
+            y="-600"
+            width="3000"
+            height="2400">
+            <!-- Organic displacement using turbulence -->
+            <feTurbulence
+              id="displaceTurbulence2"
+              type="fractalNoise"
+              baseFrequency="0.01 0.01"
+              numOctaves="5"
+              result="turbulence2"
+              seed="1" />
+            <feDisplacementMap
+              id="displaceMap2"
+              in="SourceGraphic"
+              in2="turbulence2"
+              scale="0"
+              xChannelSelector="R"
+              yChannelSelector="G"
+              result="displaced2" />
+
+            <!-- Extract alpha from displaced shape -->
+            <feColorMatrix
+              in="displaced2"
+              type="matrix"
+              values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0"
+              result="displacedAlpha2" />
+
+            <!-- Blur SourceAlpha to create distance field: center is bright (1), edges fade to dark (0) -->
+            <feGaussianBlur
+              in="displacedAlpha2"
+              stdDeviation="200"
+              result="blurred2"
+              id="dfBlur2" />
+            <!-- Invert so center = 0 (maps to red) and edge = 1 (maps to magenta) -->
+            <feComponentTransfer
+              in="blurred2"
+              result="inverted2">
+              <feFuncA
+                type="table"
+                tableValues="1 0" />
+            </feComponentTransfer>
+            <!-- Copy alpha channel to RGB so we can map colors based on intensity -->
+            <feColorMatrix
+              in="inverted2"
+              type="matrix"
+              values="0 0 0 1 0  0 0 0 1 0  0 0 0 1 0  0 0 0 1 0"
+              result="grayRGB2" />
+
+            <!-- Rainbow mapping from center → edges using table-based RGB lookups -->
+            <feComponentTransfer
+              in="grayRGB2"
+              result="gradient2">
+              <!-- R:  red(1) → orange(1) → yellow(1) → green(0) → cyan(0) → blue(0) → magenta(1) -->
+              <feFuncR
+                type="table"
+                tableValues="1 1 1 0 0 0 1"
+                id="funcR2" />
+              <!-- G:  red(0) → orange(0.5) → yellow(1) → green(1) → cyan(1) → blue(0) → magenta(0) -->
+              <feFuncG
+                type="table"
+                tableValues="0 0.5 1 1 1 0 0"
+                id="funcG2" />
+              <!-- B:  red(0) → orange(0) → yellow(0) → green(0) → cyan(1) → blue(1) → magenta(1) -->
+              <feFuncB
+                type="table"
+                tableValues="0 0 0 0 1 1 1"
+                id="funcB2" />
+              <!-- Alpha: keep bright in center, fade gradually to edge -->
+              <feFuncA
+                type="table"
+                tableValues="1.0 1.0 0.95 0.85 0.7 0.4 0.0"
+                id="funcA2" />
+            </feComponentTransfer>
+
+            <!-- Extra feather: blur the displaced alpha and use as a soft edge mask -->
+            <feGaussianBlur
+              id="featherBlur2"
+              in="displacedAlpha2"
+              stdDeviation="40"
+              result="featherMask2" />
+            <feComposite
+              in="gradient2"
+              in2="featherMask2"
+              operator="in"
+              result="feathered2" />
+
+            <!-- Brightness and Contrast adjustments -->
+            <feComponentTransfer
+              in="feathered2"
+              result="final2">
+              <feFuncR
+                type="linear"
+                slope="1"
+                intercept="0"
+                id="brightnessR2" />
+              <feFuncG
+                type="linear"
+                slope="1"
+                intercept="0"
+                id="brightnessG2" />
+              <feFuncB
+                type="linear"
+                slope="1"
+                intercept="0"
+                id="brightnessB2" />
             </feComponentTransfer>
           </filter>
         </defs>
 
         <!-- Apply gradient filter -->
-        <use
-          id="shapeUse"
-          href="#shapePath"
-          fill="white"
-          filter="url(#shapeGradient)" />
+        <g id="shapesGroup">
+          <use
+            id="shapeUse"
+            href="#shapePath"
+            fill="white"
+            filter="url(#shapeGradient1)" />
+          <use
+            id="shapeUse2"
+            href="#shapePath2"
+            fill="white"
+            filter="url(#shapeGradient2)" />
+        </g>
+        <!-- Grain overlay -->
+        <image
+          id="grainOverlay"
+          href="grain.png"
+          x="-600"
+          y="-600"
+          width="3000"
+          height="2400"
+          preserveAspectRatio="none"
+          opacity="0" />
       </svg>
       <!-- lil-gui -->
       <script type="module">
         import GUI from "https://cdn.jsdelivr.net/npm/lil-gui@0.21/+esm";
         const gui = new GUI();
         const params = {
-          // Five color stops from center→edge
-          stop1: "#FFD700", // Bright golden yellow
-          stop2: "#FF7F00", // Rich orange
-          stop3: "#E91E63", // Warm magenta
-          stop4: "#9C27B0", // Purple
-          stop5: "#483D8B", // Deep indigo
-          // Color stop positions (0-1, center to edge)
-          stopPos1: 0.0,
-          stopPos2: 0.2,
-          stopPos3: 0.5,
-          stopPos4: 0.8,
-          stopPos5: 1.0,
+          // Five color stops from center→edge - Shape 1
+          stop1_1: "#FFD700", // Bright golden yellow
+          stop2_1: "#FF7F00", // Rich orange
+          stop3_1: "#E91E63", // Warm magenta
+          stop4_1: "#9C27B0", // Purple
+          stop5_1: "#483D8B", // Deep indigo
+          // Color stop positions (0-1, center to edge) - Shape 1
+          stopPos1_1: 0.0,
+          stopPos2_1: 0.2,
+          stopPos3_1: 0.5,
+          stopPos4_1: 0.8,
+          stopPos5_1: 1.0,
+          // Five color stops from center→edge - Shape 2
+          stop1_2: "#FFD700", // Bright golden yellow
+          stop2_2: "#FF7F00", // Rich orange
+          stop3_2: "#E91E63", // Warm magenta
+          stop4_2: "#9C27B0", // Purple
+          stop5_2: "#483D8B", // Deep indigo
+          // Color stop positions (0-1, center to edge) - Shape 2
+          stopPos1_2: 0.0,
+          stopPos2_2: 0.2,
+          stopPos3_2: 0.5,
+          stopPos4_2: 0.8,
+          stopPos5_2: 1.0,
           blur: 200,
-          centerOpacity: 1.0,
-          edgeOpacity: 0.0,
-          // Transform controls
-          positionX: 0,
-          positionY: 0,
-          scale: 1.0,
-          rotation: 0,
-          skewX: 0,
-          skewY: 0,
+          centerOpacity1: 1.0,
+          edgeOpacity1: 0.0,
+          centerOpacity2: 1.0,
+          edgeOpacity2: 0.0,
+          // Transform controls - Shape 1
+          positionX1: 0,
+          positionY1: 0,
+          scale1: 1.0,
+          rotation1: 0,
+          skewX1: 0,
+          skewY1: 0,
+          // Transform controls - Shape 2
+          positionX2: 0,
+          positionY2: 0,
+          scale2: 1.0,
+          rotation2: 0,
+          skewX2: 0,
+          skewY2: 0,
+          // Blob effect
+          blobBlur: 0,
+          // Blending
+          blendMode1: "normal",
+          blendMode2: "normal",
+          // Grain overlay
+          grainOpacity: 0,
+          grainBlend: "overlay",
           // Feather control
           feather: 40,
           // Visual effects
@@ -269,9 +431,9 @@
           return samplePoints.map((idx) => result[idx]);
         }
 
-        function updateTables() {
-          const colors = [params.stop1, params.stop2, params.stop3, params.stop4, params.stop5].map(toRGB01);
-          const positions = [params.stopPos1, params.stopPos2, params.stopPos3, params.stopPos4, params.stopPos5]
+        function updateTables1() {
+          const colors = [params.stop1_1, params.stop2_1, params.stop3_1, params.stop4_1, params.stop5_1].map(toRGB01);
+          const positions = [params.stopPos1_1, params.stopPos2_1, params.stopPos3_1, params.stopPos4_1, params.stopPos5_1]
             .map((p) => Math.max(0, Math.min(1, p)))
             .sort((a, b) => a - b);
 
@@ -287,39 +449,114 @@
           const g = interpolated.map((c) => c[1].toFixed(3)).join(" ");
           const b = interpolated.map((c) => c[2].toFixed(3)).join(" ");
 
-          document.getElementById("funcR")?.setAttribute("tableValues", r);
-          document.getElementById("funcG")?.setAttribute("tableValues", g);
-          document.getElementById("funcB")?.setAttribute("tableValues", b);
+          document.getElementById("funcR1")?.setAttribute("tableValues", r);
+          document.getElementById("funcG1")?.setAttribute("tableValues", g);
+          document.getElementById("funcB1")?.setAttribute("tableValues", b);
 
           // Interpolate alpha based on stop positions
-          const alphaStops = [params.centerOpacity, 0.95, 0.8, 0.55, params.edgeOpacity];
+          const alphaStops = [params.centerOpacity1, 0.95, 0.8, 0.55, params.edgeOpacity1];
           const alphaInterpolated = interpolateColorStops(
             alphaStops.map((a) => [a, a, a]),
             sortedPositions
           );
           const a = alphaInterpolated.map((c) => Math.max(0, Math.min(1, c[0])).toFixed(2)).join(" ");
-          document.getElementById("funcA")?.setAttribute("tableValues", a);
+          document.getElementById("funcA1")?.setAttribute("tableValues", a);
+        }
+
+        function updateTables2() {
+          const colors = [params.stop1_2, params.stop2_2, params.stop3_2, params.stop4_2, params.stop5_2].map(toRGB01);
+          const positions = [params.stopPos1_2, params.stopPos2_2, params.stopPos3_2, params.stopPos4_2, params.stopPos5_2]
+            .map((p) => Math.max(0, Math.min(1, p)))
+            .sort((a, b) => a - b);
+
+          // Ensure positions are sorted and clamp colors accordingly
+          const sortedPairs = positions.map((p, i) => ({ pos: p, color: colors[i] })).sort((a, b) => a.pos - b.pos);
+          const sortedColors = sortedPairs.map((p) => p.color);
+          const sortedPositions = sortedPairs.map((p) => p.pos);
+
+          // Interpolate to create smooth gradient
+          const interpolated = interpolateColorStops(sortedColors, sortedPositions);
+
+          const r = interpolated.map((c) => c[0].toFixed(3)).join(" ");
+          const g = interpolated.map((c) => c[1].toFixed(3)).join(" ");
+          const b = interpolated.map((c) => c[2].toFixed(3)).join(" ");
+
+          document.getElementById("funcR2")?.setAttribute("tableValues", r);
+          document.getElementById("funcG2")?.setAttribute("tableValues", g);
+          document.getElementById("funcB2")?.setAttribute("tableValues", b);
+
+          // Interpolate alpha based on stop positions
+          const alphaStops = [params.centerOpacity2, 0.95, 0.8, 0.55, params.edgeOpacity2];
+          const alphaInterpolated = interpolateColorStops(
+            alphaStops.map((a) => [a, a, a]),
+            sortedPositions
+          );
+          const a = alphaInterpolated.map((c) => Math.max(0, Math.min(1, c[0])).toFixed(2)).join(" ");
+          document.getElementById("funcA2")?.setAttribute("tableValues", a);
         }
 
         function updateBlur() {
           document.getElementById("dfBlur")?.setAttribute("stdDeviation", String(params.blur));
+          document.getElementById("dfBlur2")?.setAttribute("stdDeviation", String(params.blur));
         }
 
-        function updateTransform() {
+        function updateTransform1() {
           const useEl = document.getElementById("shapeUse");
           if (!useEl) return;
-          const tx = params.positionX;
-          const ty = params.positionY;
-          const s = params.scale;
-          const r = params.rotation;
-          const skx = params.skewX;
-          const sky = params.skewY;
+          const tx = params.positionX1;
+          const ty = params.positionY1;
+          const s = params.scale1;
+          const r = params.rotation1;
+          const skx = params.skewX1;
+          const sky = params.skewY1;
           // Build transform string: translate → skew → rotate → scale
-          useEl.setAttribute("transform", `translate(${tx}, ${ty}) skewX(${skx}) skewY(${sky}) rotate(${r}) scale(${s})`);
+          const transform = `translate(${tx}, ${ty}) skewX(${skx}) skewY(${sky}) rotate(${r}) scale(${s})`;
+          useEl.setAttribute("transform", transform);
+        }
+
+        function updateTransform2() {
+          const useEl2 = document.getElementById("shapeUse2");
+          if (!useEl2) return;
+          const tx = params.positionX2;
+          const ty = params.positionY2;
+          const s = params.scale2;
+          const r = params.rotation2;
+          const skx = params.skewX2;
+          const sky = params.skewY2;
+          // Build transform string: translate → skew → rotate → scale
+          const transform = `translate(${tx}, ${ty}) skewX(${skx}) skewY(${sky}) rotate(${r}) scale(${s})`;
+          useEl2.setAttribute("transform", transform);
+        }
+
+        function updateBlobBlur() {
+          const shapesGroup = document.getElementById("shapesGroup");
+          if (shapesGroup) {
+            shapesGroup.style.filter = params.blobBlur > 0 ? `blur(${params.blobBlur}px)` : "none";
+          }
+        }
+
+        function updateBlendModes() {
+          const shape1 = document.getElementById("shapeUse");
+          const shape2 = document.getElementById("shapeUse2");
+          if (shape1) {
+            shape1.style.mixBlendMode = params.blendMode1;
+          }
+          if (shape2) {
+            shape2.style.mixBlendMode = params.blendMode2;
+          }
+        }
+
+        function updateGrain() {
+          const grain = document.getElementById("grainOverlay");
+          if (grain) {
+            grain.setAttribute("opacity", String(params.grainOpacity));
+            grain.style.mixBlendMode = params.grainBlend;
+          }
         }
 
         function updateFeather() {
           document.getElementById("featherBlur")?.setAttribute("stdDeviation", String(params.feather));
+          document.getElementById("featherBlur2")?.setAttribute("stdDeviation", String(params.feather));
         }
 
         function updateEffects() {
@@ -330,12 +567,20 @@
           const slope = brightness * contrast;
           const intercept = brightness * (-0.5 * contrast + 0.5);
 
-          document.getElementById("brightnessR")?.setAttribute("slope", String(slope));
-          document.getElementById("brightnessR")?.setAttribute("intercept", String(intercept));
-          document.getElementById("brightnessG")?.setAttribute("slope", String(slope));
-          document.getElementById("brightnessG")?.setAttribute("intercept", String(intercept));
-          document.getElementById("brightnessB")?.setAttribute("slope", String(slope));
-          document.getElementById("brightnessB")?.setAttribute("intercept", String(intercept));
+          // Apply to both shapes (shared brightness/contrast for now)
+          document.getElementById("brightnessR1")?.setAttribute("slope", String(slope));
+          document.getElementById("brightnessR1")?.setAttribute("intercept", String(intercept));
+          document.getElementById("brightnessG1")?.setAttribute("slope", String(slope));
+          document.getElementById("brightnessG1")?.setAttribute("intercept", String(intercept));
+          document.getElementById("brightnessB1")?.setAttribute("slope", String(slope));
+          document.getElementById("brightnessB1")?.setAttribute("intercept", String(intercept));
+
+          document.getElementById("brightnessR2")?.setAttribute("slope", String(slope));
+          document.getElementById("brightnessR2")?.setAttribute("intercept", String(intercept));
+          document.getElementById("brightnessG2")?.setAttribute("slope", String(slope));
+          document.getElementById("brightnessG2")?.setAttribute("intercept", String(intercept));
+          document.getElementById("brightnessB2")?.setAttribute("slope", String(slope));
+          document.getElementById("brightnessB2")?.setAttribute("intercept", String(intercept));
         }
 
         let displacementAnimationId = null;
@@ -343,11 +588,15 @@
         let displacementTime = 0;
 
         function updateDisplacement() {
+          // Update both displacement maps
           document.getElementById("displaceMap")?.setAttribute("scale", String(params.displacementStrength));
+          document.getElementById("displaceMap2")?.setAttribute("scale", String(params.displacementStrength));
 
           const freq = params.displacementFrequency;
           document.getElementById("displaceTurbulence")?.setAttribute("baseFrequency", `${freq} ${freq}`);
           document.getElementById("displaceTurbulence")?.setAttribute("numOctaves", String(params.displacementOctaves));
+          document.getElementById("displaceTurbulence2")?.setAttribute("baseFrequency", `${freq} ${freq}`);
+          document.getElementById("displaceTurbulence2")?.setAttribute("numOctaves", String(params.displacementOctaves));
 
           // Stop existing animation
           if (displacementAnimationId) {
@@ -361,7 +610,8 @@
               displacementTime += params.displacementSpeed || 0.005;
               const baseFreq = params.displacementFrequency;
               const turbEl = document.getElementById("displaceTurbulence");
-              if (turbEl) {
+              const turbEl2 = document.getElementById("displaceTurbulence2");
+              if (turbEl && turbEl2) {
                 // Lava lamp style: slow, smooth, flowing movement
                 // Multiple sine waves at different frequencies for organic flow
                 const wave1 = Math.sin(displacementTime * 0.3) * 0.003;
@@ -371,6 +621,10 @@
                 const x = baseFreq + wave1 + wave2;
                 const y = baseFreq + wave3 + Math.cos(displacementTime * 0.4) * 0.004;
                 turbEl.setAttribute("baseFrequency", `${x} ${y}`);
+                // Shape 2 with slight phase offset for variation
+                const x2 = baseFreq + Math.sin(displacementTime * 0.3 + 1.0) * 0.003;
+                const y2 = baseFreq + Math.cos(displacementTime * 0.5 + 0.5) * 0.005;
+                turbEl2.setAttribute("baseFrequency", `${x2} ${y2}`);
               }
               displacementAnimationId = requestAnimationFrame(animate);
             }
@@ -458,6 +712,69 @@
         const bf = gui.addFolder("Blob Effect");
         bf.add(params, "blobBlur", 0, 200, 1).name("Blob Blur").onChange(updateBlobBlur);
 
+        const blf = gui.addFolder("Blend Modes");
+        blf
+          .add(params, "blendMode1", [
+            "normal",
+            "multiply",
+            "screen",
+            "overlay",
+            "soft-light",
+            "hard-light",
+            "color-dodge",
+            "color-burn",
+            "darken",
+            "lighten",
+            "difference",
+            "exclusion",
+            "hue",
+            "saturation",
+            "color",
+            "luminosity",
+          ])
+          .name("Shape 1 Blend")
+          .onChange(updateBlendModes);
+        blf
+          .add(params, "blendMode2", [
+            "normal",
+            "multiply",
+            "screen",
+            "overlay",
+            "soft-light",
+            "hard-light",
+            "color-dodge",
+            "color-burn",
+            "darken",
+            "lighten",
+            "difference",
+            "exclusion",
+            "hue",
+            "saturation",
+            "color",
+            "luminosity",
+          ])
+          .name("Shape 2 Blend")
+          .onChange(updateBlendModes);
+
+        const gf = gui.addFolder("Grain Overlay");
+        gf.add(params, "grainOpacity", 0, 1, 0.01).name("Grain Opacity").onChange(updateGrain);
+        gf.add(params, "grainBlend", [
+          "normal",
+          "multiply",
+          "screen",
+          "overlay",
+          "soft-light",
+          "hard-light",
+          "color-dodge",
+          "color-burn",
+          "darken",
+          "lighten",
+          "difference",
+          "exclusion",
+        ])
+          .name("Grain Blend Mode")
+          .onChange(updateGrain);
+
         const ff = gui.addFolder("Edge Feather");
         ff.add(params, "feather", 0, 150, 1).name("Feather Amount").onChange(updateFeather);
 
@@ -500,6 +817,8 @@
         updateDisplacement();
         updatePath2();
         updateBlobBlur();
+        updateBlendModes();
+        updateGrain();
       </script>
     </div>
   </body>

@@ -65,16 +65,28 @@
             height="2400">
             <feImage
               id="sharedGrainImage"
-              href="grain.png"
+              href="grain2.jpeg"
               result="sharedGrainTex"
-              preserveAspectRatio="none"
+              preserveAspectRatio="none" />
+            <!-- Tile the grain texture to repeat across the filter area -->
+            <feTile
+              id="grainTile"
+              in="sharedGrainTex"
               x="-600"
               y="-600"
               width="3000"
-              height="2400" />
+              height="2400"
+              result="tiledGrainTex" />
+            <!-- Offset for positioning the tiled grain -->
+            <feOffset
+              id="grainOffset"
+              in="tiledGrainTex"
+              dx="0"
+              dy="0"
+              result="offsetGrainTex" />
             <!-- Apply grain opacity -->
             <feComponentTransfer
-              in="sharedGrainTex"
+              in="offsetGrainTex"
               result="sharedGrainWithOpacity">
               <feFuncA
                 type="linear"
@@ -86,14 +98,14 @@
             <feBlend
               id="grainBlend"
               in="SourceGraphic"
-              in2="sharedGrainTex"
+              in2="offsetGrainTex"
               mode="overlay"
               result="grainBlended" />
             <!-- Multiply blend mode using arithmetic composite (result = i1 * i2) -->
             <feComposite
               id="grainMultiply"
               in="SourceGraphic"
-              in2="sharedGrainTex"
+              in2="offsetGrainTex"
               operator="arithmetic"
               k1="1"
               k2="0"
@@ -608,24 +620,24 @@
         }
 
         function updateGrain() {
-          // Update shared grain image coordinates
+          // Update grain texture scale (smaller dimensions = more tiles, larger = fewer tiles)
           const scale = Math.max(0.1, params.grainScale);
-          const baseWidth = 3000;
-          const baseHeight = 2400;
-          const centerX = 900;
-          const centerY = 600;
-
-          const scaledWidth = baseWidth / scale;
-          const scaledHeight = baseHeight / scale;
-          const scaledX = centerX - scaledWidth / 2 + params.grainPositionX;
-          const scaledY = centerY - scaledHeight / 2 + params.grainPositionY;
+          // Base size for the texture - adjust these to match your texture's aspect ratio
+          const baseTextureSize = 200; // Base size for the texture tile
+          const scaledSize = baseTextureSize / scale;
 
           const sharedGrainImage = document.getElementById("sharedGrainImage");
           if (sharedGrainImage) {
-            sharedGrainImage.setAttribute("x", String(scaledX));
-            sharedGrainImage.setAttribute("y", String(scaledY));
-            sharedGrainImage.setAttribute("width", String(scaledWidth));
-            sharedGrainImage.setAttribute("height", String(scaledHeight));
+            // Set width and height to control tile size (smaller = more repetitions)
+            sharedGrainImage.setAttribute("width", String(scaledSize));
+            sharedGrainImage.setAttribute("height", String(scaledSize));
+          }
+
+          // Update grain position offset
+          const grainOffset = document.getElementById("grainOffset");
+          if (grainOffset) {
+            grainOffset.setAttribute("dx", String(params.grainPositionX));
+            grainOffset.setAttribute("dy", String(params.grainPositionY));
           }
 
           // Update grain opacity

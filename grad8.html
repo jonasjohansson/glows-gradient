@@ -1,0 +1,1148 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0" />
+    <title>Glows Gradient - Shader</title>
+    <style>
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+        background: #0f0f0f;
+      }
+      .stage {
+        position: fixed;
+        inset: 0;
+        overflow: hidden;
+        background-image: url("cozy - 1291.jpg");
+        background-size: cover;
+        background-position: center top;
+        background-repeat: no-repeat;
+      }
+      canvas {
+        width: min(60vw, 800px);
+        height: auto;
+        display: block;
+        mix-blend-mode: normal;
+        position: fixed;
+        top: 0;
+        right: 0;
+        pointer-events: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="stage">
+      <canvas id="gradientCanvas"></canvas>
+      <!-- lil-gui -->
+      <script type="module">
+        import GUI from "https://cdn.jsdelivr.net/npm/lil-gui@0.21/+esm";
+
+        const canvas = document.getElementById("gradientCanvas");
+        const gl = canvas.getContext("webgl2") || canvas.getContext("webgl");
+
+        if (!gl) {
+          alert("WebGL not supported. Please use a modern browser.");
+          throw new Error("WebGL not supported");
+        }
+
+        const gui = new GUI();
+        const params = {
+          // Five color stops from center→edge - Shape 1
+          stop1_1: "#FFD700", // Bright golden yellow
+          stop2_1: "#FF7F00", // Rich orange
+          stop3_1: "#E91E63", // Warm magenta
+          stop4_1: "#9C27B0", // Purple
+          stop5_1: "#483D8B", // Deep indigo
+          // Color stop positions (0-1, center to edge) - Shape 1
+          stopPos1_1: 0.0,
+          stopPos2_1: 0.2,
+          stopPos3_1: 0.5,
+          stopPos4_1: 0.8,
+          stopPos5_1: 1.0,
+          // Five color stops from center→edge - Shape 2
+          stop1_2: "#FFD700", // Bright golden yellow
+          stop2_2: "#FF7F00", // Rich orange
+          stop3_2: "#E91E63", // Warm magenta
+          stop4_2: "#9C27B0", // Purple
+          stop5_2: "#483D8B", // Deep indigo
+          // Color stop positions (0-1, center to edge) - Shape 2
+          stopPos1_2: 0.0,
+          stopPos2_2: 0.2,
+          stopPos3_2: 0.5,
+          stopPos4_2: 0.8,
+          stopPos5_2: 1.0,
+          blur: 200,
+          centerOpacity1: 1.0,
+          edgeOpacity1: 0.0,
+          centerOpacity2: 1.0,
+          edgeOpacity2: 0.0,
+          // Transform controls - Shape 1
+          positionX1: 0,
+          positionY1: 0,
+          scale1: 1.0,
+          rotation1: 0,
+          skewX1: 0,
+          skewY1: 0,
+          // Transform controls - Shape 2
+          positionX2: 0,
+          positionY2: 0,
+          scale2: 1.0,
+          rotation2: 0,
+          skewX2: 0,
+          skewY2: 0,
+          // Blob effect
+          blobBlur: 0,
+          // Blending
+          blendMode1: "normal",
+          blendMode2: "normal",
+          // Grain overlay
+          grainOpacity: 0,
+          grainBlend: "overlay",
+          grainScale: 1.0,
+          grainPositionX: 0,
+          grainPositionY: 0,
+          // Animation
+          animate: false,
+          animationSpeed: 1.0,
+          animationIntensity: 5,
+          animationRandomness: 1.0,
+          // Feather control
+          feather: 40,
+          // Visual effects
+          brightness: 1.0,
+          contrast: 1.0,
+          // Displacement controls
+          displacementStrength: 0,
+          displacementFrequency: 0.01,
+          displacementOctaves: 5,
+          displacementAnimated: false,
+          displacementSpeed: 0.005,
+        };
+
+        // Shader source code
+        const vertexShaderSource = `#version 300 es
+          in vec2 a_position;
+          
+          void main() {
+            // a_position is already in clip space (-1 to 1)
+            gl_Position = vec4(a_position, 0, 1);
+          }
+        `;
+
+        const fragmentShaderSource = `#version 300 es
+          precision highp float;
+          
+          out vec4 outColor;
+          
+          uniform vec2 u_resolution;
+          uniform float u_time;
+          
+          // Shape 1 parameters
+          uniform vec2 u_center1;
+          uniform float u_scale1;
+          uniform float u_rotation1;
+          uniform vec2 u_skew1;
+          uniform float u_blur1;
+          uniform float u_feather1;
+          uniform float u_centerOpacity1;
+          uniform float u_edgeOpacity1;
+          uniform vec3 u_colorStop1_1;
+          uniform vec3 u_colorStop2_1;
+          uniform vec3 u_colorStop3_1;
+          uniform vec3 u_colorStop4_1;
+          uniform vec3 u_colorStop5_1;
+          uniform float u_stopPos1_1;
+          uniform float u_stopPos2_1;
+          uniform float u_stopPos3_1;
+          uniform float u_stopPos4_1;
+          uniform float u_stopPos5_1;
+          uniform float u_displacementStrength1;
+          uniform float u_displacementFreq1;
+          uniform float u_displacementOctaves1;
+          uniform float u_brightness;
+          uniform float u_contrast;
+          uniform float u_grainOpacity;
+          uniform float u_grainScale;
+          uniform float u_grainPositionX;
+          uniform float u_grainPositionY;
+          uniform float u_blobBlur;
+          
+          // Shape 2 parameters
+          uniform vec2 u_center2;
+          uniform float u_scale2;
+          uniform float u_rotation2;
+          uniform vec2 u_skew2;
+          uniform float u_blur2;
+          uniform float u_feather2;
+          uniform float u_centerOpacity2;
+          uniform float u_edgeOpacity2;
+          uniform vec3 u_colorStop1_2;
+          uniform vec3 u_colorStop2_2;
+          uniform vec3 u_colorStop3_2;
+          uniform vec3 u_colorStop4_2;
+          uniform vec3 u_colorStop5_2;
+          uniform float u_stopPos1_2;
+          uniform float u_stopPos2_2;
+          uniform float u_stopPos3_2;
+          uniform float u_stopPos4_2;
+          uniform float u_stopPos5_2;
+          
+          // Shape path data (simplified as blob function)
+          float sdfBlob(vec2 p, float time) {
+            p = (p - u_resolution * 0.5) / u_resolution.y * 1000.0;
+            
+            // Create organic blob shape - smoother, more blob-like
+            float angle = atan(p.y, p.x);
+            float radius = length(p);
+            
+            // Base blob radius - larger, smoother shape
+            float baseRadius = 500.0;
+            
+            // Add displacement/noise for organic shape
+            float noise = 0.0;
+            if (u_displacementStrength1 > 0.0) {
+              float freq = u_displacementFreq1;
+              float amp = u_displacementStrength1 * 0.01;
+              
+              for (int i = 0; i < 5; i++) {
+                if (float(i) < u_displacementOctaves1) {
+                  noise += sin(radius * freq + angle * 2.0 + time * 0.1) * amp / (1.0 + float(i));
+                  freq *= 2.0;
+                  amp *= 0.5;
+                }
+              }
+            }
+            
+            // Smoother organic variation - fewer, larger bulges
+            float variation = sin(angle * 2.5 + time * 0.02) * 80.0 + 
+                            cos(angle * 3.5 - time * 0.015) * 60.0 +
+                            sin(angle * 1.8 + time * 0.025) * 50.0;
+            
+            return radius - (baseRadius + noise + variation);
+          }
+          
+          float sdfBlob2(vec2 p, float time) {
+            p = (p - u_resolution * 0.5) / u_resolution.y * 1000.0;
+            
+            float angle = atan(p.y, p.x);
+            float radius = length(p);
+            
+            // Base blob radius
+            float baseRadius = 480.0;
+            
+            // Smoother organic variation for second blob - different pattern
+            float variation = cos(angle * 2.3 + time * 0.018) * 90.0 + 
+                            sin(angle * 3.8 - time * 0.012) * 70.0 +
+                            cos(angle * 1.6 + time * 0.022) * 55.0;
+            
+            return radius - (baseRadius + variation);
+          }
+          
+          // Noise function for grain
+          float hash(vec2 p) {
+            return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+          }
+          
+          float noise(vec2 p) {
+            vec2 i = floor(p);
+            vec2 f = fract(p);
+            f = f * f * (3.0 - 2.0 * f);
+            
+            float a = hash(i);
+            float b = hash(i + vec2(1.0, 0.0));
+            float c = hash(i + vec2(0.0, 1.0));
+            float d = hash(i + vec2(1.0, 1.0));
+            
+            return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+          }
+          
+          // Interpolate color gradient
+          vec3 getGradientColor(float dist, vec3 c1, vec3 c2, vec3 c3, vec3 c4, vec3 c5,
+                                float p1, float p2, float p3, float p4, float p5) {
+            if (dist <= p1) return c1;
+            if (dist <= p2) return mix(c1, c2, (dist - p1) / (p2 - p1));
+            if (dist <= p3) return mix(c2, c3, (dist - p2) / (p3 - p2));
+            if (dist <= p4) return mix(c3, c4, (dist - p3) / (p4 - p3));
+            if (dist <= p5) return mix(c4, c5, (dist - p4) / (p5 - p4));
+            return c5;
+          }
+          
+          void main() {
+            vec2 uv = gl_FragCoord.xy;
+            vec2 coord = uv;
+            
+            // Transform coordinates for shape 1
+            vec2 centered1 = coord - u_center1;
+            float cosR1 = cos(u_rotation1);
+            float sinR1 = sin(u_rotation1);
+            vec2 rotated1 = vec2(
+              centered1.x * cosR1 - centered1.y * sinR1,
+              centered1.x * sinR1 + centered1.y * cosR1
+            );
+            rotated1.x += rotated1.y * tan(u_skew1.x);
+            rotated1.y += rotated1.x * tan(u_skew1.y);
+            vec2 transformed1 = rotated1 / u_scale1 + u_center1;
+            
+            // Transform coordinates for shape 2
+            vec2 centered2 = coord - u_center2;
+            float cosR2 = cos(u_rotation2);
+            float sinR2 = sin(u_rotation2);
+            vec2 rotated2 = vec2(
+              centered2.x * cosR2 - centered2.y * sinR2,
+              centered2.x * sinR2 + centered2.y * cosR2
+            );
+            rotated2.x += rotated2.y * tan(u_skew2.x);
+            rotated2.y += rotated2.x * tan(u_skew2.y);
+            vec2 transformed2 = rotated2 / u_scale2 + u_center2;
+            
+            // Calculate distance fields
+            float dist1 = sdfBlob(transformed1, u_time);
+            float dist2 = sdfBlob2(transformed2, u_time);
+            
+            // Apply blur (smooth step) - this creates the soft edge
+            // smoothed value: 1.0 = center of blob, 0.0 = edge/outside
+            float smoothed1 = smoothstep(u_blur1, -u_feather1, dist1);
+            float smoothed2 = smoothstep(u_blur2, -u_feather2, dist2);
+            
+            // Get gradient colors - emit from center of shape
+            // Use the smoothed distance field: it's 1.0 at center, 0.0 at edge
+            // Invert it so 0 = center (stop1), 1 = edge (stop5)
+            // This makes the gradient follow the blob's shape contours smoothly
+            float normalizedDist1 = 1.0 - smoothed1;
+            float normalizedDist2 = 1.0 - smoothed2;
+            
+            vec3 color1 = getGradientColor(
+              normalizedDist1,
+              u_colorStop1_1, u_colorStop2_1, u_colorStop3_1, u_colorStop4_1, u_colorStop5_1,
+              u_stopPos1_1, u_stopPos2_1, u_stopPos3_1, u_stopPos4_1, u_stopPos5_1
+            );
+            
+            vec3 color2 = getGradientColor(
+              normalizedDist2,
+              u_colorStop1_2, u_colorStop2_2, u_colorStop3_2, u_colorStop4_2, u_colorStop5_2,
+              u_stopPos1_2, u_stopPos2_2, u_stopPos3_2, u_stopPos4_2, u_stopPos5_2
+            );
+            
+            // Apply opacity gradient
+            float opacity1 = mix(u_centerOpacity1, u_edgeOpacity1, normalizedDist1) * smoothed1;
+            float opacity2 = mix(u_centerOpacity2, u_edgeOpacity2, normalizedDist2) * smoothed2;
+            
+            vec4 shape1 = vec4(color1, opacity1);
+            vec4 shape2 = vec4(color2, opacity2);
+            
+            // Blend shapes
+            vec4 result = shape1;
+            
+            // Blend mode mixing (simplified)
+            float a2 = shape2.a;
+            vec3 blended = mix(result.rgb, shape2.rgb, a2);
+            float combinedAlpha = result.a + shape2.a * (1.0 - result.a);
+            result = vec4(blended, combinedAlpha);
+            
+            // Apply brightness and contrast
+            result.rgb = (result.rgb - 0.5) * u_contrast + 0.5;
+            result.rgb *= u_brightness;
+            
+            // Apply grain
+            vec2 grainCoord = (coord + vec2(u_grainPositionX, u_grainPositionY)) * u_grainScale * 0.01;
+            float grain = noise(grainCoord + u_time * 0.1);
+            grain = grain * 2.0 - 1.0; // -1 to 1
+            result.rgb += grain * u_grainOpacity * 0.1;
+            
+            // Apply blob blur - creates additional softness beyond the shape edge
+            // This simulates a gaussian blur by expanding the smoothstep range outward
+            if (u_blobBlur > 0.0) {
+              // Expand the falloff area - blurAmount extends the soft edge
+              float blurAmount = u_blobBlur * 2.0;
+              
+              // Calculate additional blur by expanding the distance field threshold
+              float blurred1 = smoothstep(u_blur1 - blurAmount * 0.5, -u_feather1 - blurAmount, dist1);
+              float blurred2 = smoothstep(u_blur2 - blurAmount * 0.5, -u_feather2 - blurAmount, dist2);
+              
+              // Mix between original and blurred version based on blur strength
+              float blurMix = min(u_blobBlur / 100.0, 1.0);
+              float finalAlpha1 = mix(smoothed1, blurred1, blurMix);
+              float finalAlpha2 = mix(smoothed2, blurred2, blurMix);
+              
+              // Apply the blurred alpha to the final result
+              float finalOpacity1 = mix(u_centerOpacity1, u_edgeOpacity1, normalizedDist1) * finalAlpha1;
+              float finalOpacity2 = mix(u_centerOpacity2, u_edgeOpacity2, normalizedDist2) * finalAlpha2;
+              
+              // Update result with blurred opacity
+              vec4 blurredShape1 = vec4(color1, finalOpacity1);
+              vec4 blurredShape2 = vec4(color2, finalOpacity2);
+              
+              // Re-blend with blurred versions
+              float a2_blur = blurredShape2.a;
+              vec3 blended_blur = mix(blurredShape1.rgb, blurredShape2.rgb, a2_blur);
+              float combinedAlpha_blur = blurredShape1.a + blurredShape2.a * (1.0 - blurredShape1.a);
+              
+              // Mix between original and blurred result
+              result = mix(result, vec4(blended_blur, combinedAlpha_blur), blurMix);
+            }
+            
+            outColor = result;
+          }
+        `;
+
+        // Shader compilation helper
+        function createShader(gl, type, source) {
+          const shader = gl.createShader(type);
+          gl.shaderSource(shader, source);
+          gl.compileShader(shader);
+
+          if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+            console.error("Shader compilation error:", gl.getShaderInfoLog(shader));
+            gl.deleteShader(shader);
+            return null;
+          }
+
+          return shader;
+        }
+
+        function createProgram(gl, vertexShader, fragmentShader) {
+          const program = gl.createProgram();
+          gl.attachShader(program, vertexShader);
+          gl.attachShader(program, fragmentShader);
+          gl.linkProgram(program);
+
+          if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+            console.error("Program linking error:", gl.getProgramInfoLog(program));
+            gl.deleteProgram(program);
+            return null;
+          }
+
+          return program;
+        }
+
+        // Initialize WebGL
+        const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
+        const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
+        const program = createProgram(gl, vertexShader, fragmentShader);
+
+        if (!program) {
+          throw new Error("Failed to create WebGL program");
+        }
+
+        // Get attribute and uniform locations
+        const positionLocation = gl.getAttribLocation(program, "a_position");
+        const resolutionLocation = gl.getUniformLocation(program, "u_resolution");
+        const timeLocation = gl.getUniformLocation(program, "u_time");
+
+        // Shape uniforms
+        const center1Loc = gl.getUniformLocation(program, "u_center1");
+        const scale1Loc = gl.getUniformLocation(program, "u_scale1");
+        const rotation1Loc = gl.getUniformLocation(program, "u_rotation1");
+        const skew1Loc = gl.getUniformLocation(program, "u_skew1");
+        const blur1Loc = gl.getUniformLocation(program, "u_blur1");
+        const feather1Loc = gl.getUniformLocation(program, "u_feather1");
+        const centerOpacity1Loc = gl.getUniformLocation(program, "u_centerOpacity1");
+        const edgeOpacity1Loc = gl.getUniformLocation(program, "u_edgeOpacity1");
+
+        // Color stops for shape 1
+        const colorStop1_1Loc = gl.getUniformLocation(program, "u_colorStop1_1");
+        const colorStop2_1Loc = gl.getUniformLocation(program, "u_colorStop2_1");
+        const colorStop3_1Loc = gl.getUniformLocation(program, "u_colorStop3_1");
+        const colorStop4_1Loc = gl.getUniformLocation(program, "u_colorStop4_1");
+        const colorStop5_1Loc = gl.getUniformLocation(program, "u_colorStop5_1");
+        const stopPos1_1Loc = gl.getUniformLocation(program, "u_stopPos1_1");
+        const stopPos2_1Loc = gl.getUniformLocation(program, "u_stopPos2_1");
+        const stopPos3_1Loc = gl.getUniformLocation(program, "u_stopPos3_1");
+        const stopPos4_1Loc = gl.getUniformLocation(program, "u_stopPos4_1");
+        const stopPos5_1Loc = gl.getUniformLocation(program, "u_stopPos5_1");
+
+        // Shape 2 uniforms
+        const center2Loc = gl.getUniformLocation(program, "u_center2");
+        const scale2Loc = gl.getUniformLocation(program, "u_scale2");
+        const rotation2Loc = gl.getUniformLocation(program, "u_rotation2");
+        const skew2Loc = gl.getUniformLocation(program, "u_skew2");
+        const blur2Loc = gl.getUniformLocation(program, "u_blur2");
+        const feather2Loc = gl.getUniformLocation(program, "u_feather2");
+        const centerOpacity2Loc = gl.getUniformLocation(program, "u_centerOpacity2");
+        const edgeOpacity2Loc = gl.getUniformLocation(program, "u_edgeOpacity2");
+
+        // Color stops for shape 2
+        const colorStop1_2Loc = gl.getUniformLocation(program, "u_colorStop1_2");
+        const colorStop2_2Loc = gl.getUniformLocation(program, "u_colorStop2_2");
+        const colorStop3_2Loc = gl.getUniformLocation(program, "u_colorStop3_2");
+        const colorStop4_2Loc = gl.getUniformLocation(program, "u_colorStop4_2");
+        const colorStop5_2Loc = gl.getUniformLocation(program, "u_colorStop5_2");
+        const stopPos1_2Loc = gl.getUniformLocation(program, "u_stopPos1_2");
+        const stopPos2_2Loc = gl.getUniformLocation(program, "u_stopPos2_2");
+        const stopPos3_2Loc = gl.getUniformLocation(program, "u_stopPos3_2");
+        const stopPos4_2Loc = gl.getUniformLocation(program, "u_stopPos4_2");
+        const stopPos5_2Loc = gl.getUniformLocation(program, "u_stopPos5_2");
+
+        // Effects uniforms
+        const brightnessLoc = gl.getUniformLocation(program, "u_brightness");
+        const contrastLoc = gl.getUniformLocation(program, "u_contrast");
+        const displacementStrength1Loc = gl.getUniformLocation(program, "u_displacementStrength1");
+        const displacementFreq1Loc = gl.getUniformLocation(program, "u_displacementFreq1");
+        const displacementOctaves1Loc = gl.getUniformLocation(program, "u_displacementOctaves1");
+        const grainOpacityLoc = gl.getUniformLocation(program, "u_grainOpacity");
+        const grainScaleLoc = gl.getUniformLocation(program, "u_grainScale");
+        const grainPositionXLoc = gl.getUniformLocation(program, "u_grainPositionX");
+        const grainPositionYLoc = gl.getUniformLocation(program, "u_grainPositionY");
+        const blobBlurLoc = gl.getUniformLocation(program, "u_blobBlur");
+
+        // Create quad geometry
+        const positionBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]), gl.STATIC_DRAW);
+
+        // Helper functions
+        const toRGB01 = (hex) => {
+          const m = /^#?([\da-f]{2})([\da-f]{2})([\da-f]{2})$/i.exec(hex);
+          if (!m) return [1, 1, 1];
+          return [parseInt(m[1], 16) / 255, parseInt(m[2], 16) / 255, parseInt(m[3], 16) / 255];
+        };
+
+        let animationTime = 0;
+        let displacementTime = 0;
+        let animationId = null;
+
+        function resizeCanvas() {
+          const displayWidth = Math.min(window.innerWidth * 0.9, 1200);
+          const displayHeight = (displayWidth / 1885.76) * 1161.29;
+
+          // Add extra padding to accommodate blob extent + blur
+          // Blobs can extend ~800px from center with blur, so we need padding
+          const padding = 400; // Extra padding for blur and blob variations
+          canvas.width = displayWidth + padding * 2;
+          canvas.height = displayHeight + padding * 2;
+
+          gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+          requestRender();
+        }
+
+        function render() {
+          gl.useProgram(program);
+
+          // Enable blending
+          gl.enable(gl.BLEND);
+          gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
+          // Set up geometry
+          gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+          gl.enableVertexAttribArray(positionLocation);
+          gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+
+          // Calculate centers (relative to canvas)
+          const centerX1 = gl.canvas.width / 2 + params.positionX1;
+          const centerY1 = gl.canvas.height / 2 - params.positionY1;
+          const centerX2 = gl.canvas.width / 2 + params.positionX2;
+          const centerY2 = gl.canvas.height / 2 - params.positionY2;
+
+          // Animation offsets
+          let animOffsetX1 = 0,
+            animOffsetY1 = 0,
+            animRot1 = 0;
+          let animOffsetX2 = 0,
+            animOffsetY2 = 0,
+            animRot2 = 0;
+
+          if (params.animate) {
+            animationTime += 0.01 * params.animationSpeed;
+            const randomness = params.animationRandomness;
+            const intensity = params.animationIntensity;
+
+            // Shape 1 animation
+            const wave1X = Math.sin(animationTime * 0.7);
+            const wave2X = Math.cos(animationTime * 1.3);
+            const randomWave1X = Math.sin(animationTime * (3.7 + randomness * 0.3));
+            animOffsetX1 = (wave1X * 0.5 + wave2X * 0.3 + randomWave1X * 0.2) * intensity;
+
+            const wave1Y = Math.cos(animationTime * 0.9);
+            const wave2Y = Math.sin(animationTime * 1.5);
+            const randomWave1Y = Math.cos(animationTime * (3.9 + randomness * 0.4));
+            animOffsetY1 = (wave1Y * 0.5 + wave2Y * 0.3 + randomWave1Y * 0.2) * intensity;
+
+            animRot1 = Math.sin(animationTime * 0.5) * intensity * 0.5;
+
+            // Shape 2 animation
+            const wave1X2 = Math.cos(animationTime * 0.8);
+            const wave2X2 = Math.sin(animationTime * 1.4);
+            const randomWave1X2 = Math.cos(animationTime * (3.8 + randomness * 0.35));
+            animOffsetX2 = (wave1X2 * 0.5 + wave2X2 * 0.3 + randomWave1X2 * 0.2) * intensity;
+
+            const wave1Y2 = Math.sin(animationTime * 0.6);
+            const wave2Y2 = Math.cos(animationTime * 1.2);
+            const randomWave1Y2 = Math.sin(animationTime * (4.0 + randomness * 0.3));
+            animOffsetY2 = (wave1Y2 * 0.5 + wave2Y2 * 0.3 + randomWave1Y2 * 0.2) * intensity;
+
+            animRot2 = Math.cos(animationTime * 0.4) * intensity * 0.5;
+          }
+
+          // Displacement animation
+          if (params.displacementAnimated) {
+            displacementTime += params.displacementSpeed;
+          }
+
+          // Set uniforms
+          gl.uniform2f(resolutionLocation, gl.canvas.width, gl.canvas.height);
+          gl.uniform1f(timeLocation, displacementTime);
+
+          // Shape 1 uniforms
+          gl.uniform2f(center1Loc, centerX1 + animOffsetX1, centerY1 + animOffsetY1);
+          gl.uniform1f(scale1Loc, params.scale1);
+          gl.uniform1f(rotation1Loc, ((params.rotation1 + animRot1) * Math.PI) / 180);
+          gl.uniform2f(skew1Loc, (params.skewX1 * Math.PI) / 180, (params.skewY1 * Math.PI) / 180);
+          gl.uniform1f(blur1Loc, params.blur);
+          gl.uniform1f(feather1Loc, params.feather);
+          gl.uniform1f(centerOpacity1Loc, params.centerOpacity1);
+          gl.uniform1f(edgeOpacity1Loc, params.edgeOpacity1);
+
+          const colors1 = [
+            toRGB01(params.stop1_1),
+            toRGB01(params.stop2_1),
+            toRGB01(params.stop3_1),
+            toRGB01(params.stop4_1),
+            toRGB01(params.stop5_1),
+          ];
+          gl.uniform3fv(colorStop1_1Loc, colors1[0]);
+          gl.uniform3fv(colorStop2_1Loc, colors1[1]);
+          gl.uniform3fv(colorStop3_1Loc, colors1[2]);
+          gl.uniform3fv(colorStop4_1Loc, colors1[3]);
+          gl.uniform3fv(colorStop5_1Loc, colors1[4]);
+          gl.uniform1f(stopPos1_1Loc, params.stopPos1_1);
+          gl.uniform1f(stopPos2_1Loc, params.stopPos2_1);
+          gl.uniform1f(stopPos3_1Loc, params.stopPos3_1);
+          gl.uniform1f(stopPos4_1Loc, params.stopPos4_1);
+          gl.uniform1f(stopPos5_1Loc, params.stopPos5_1);
+
+          // Shape 2 uniforms
+          gl.uniform2f(center2Loc, centerX2 + animOffsetX2, centerY2 + animOffsetY2);
+          gl.uniform1f(scale2Loc, params.scale2);
+          gl.uniform1f(rotation2Loc, ((params.rotation2 + animRot2) * Math.PI) / 180);
+          gl.uniform2f(skew2Loc, (params.skewX2 * Math.PI) / 180, (params.skewY2 * Math.PI) / 180);
+          gl.uniform1f(blur2Loc, params.blur);
+          gl.uniform1f(feather2Loc, params.feather);
+          gl.uniform1f(centerOpacity2Loc, params.centerOpacity2);
+          gl.uniform1f(edgeOpacity2Loc, params.edgeOpacity2);
+
+          const colors2 = [
+            toRGB01(params.stop1_2),
+            toRGB01(params.stop2_2),
+            toRGB01(params.stop3_2),
+            toRGB01(params.stop4_2),
+            toRGB01(params.stop5_2),
+          ];
+          gl.uniform3fv(colorStop1_2Loc, colors2[0]);
+          gl.uniform3fv(colorStop2_2Loc, colors2[1]);
+          gl.uniform3fv(colorStop3_2Loc, colors2[2]);
+          gl.uniform3fv(colorStop4_2Loc, colors2[3]);
+          gl.uniform3fv(colorStop5_2Loc, colors2[4]);
+          gl.uniform1f(stopPos1_2Loc, params.stopPos1_2);
+          gl.uniform1f(stopPos2_2Loc, params.stopPos2_2);
+          gl.uniform1f(stopPos3_2Loc, params.stopPos3_2);
+          gl.uniform1f(stopPos4_2Loc, params.stopPos4_2);
+          gl.uniform1f(stopPos5_2Loc, params.stopPos5_2);
+
+          // Effects uniforms
+          gl.uniform1f(brightnessLoc, params.brightness);
+          gl.uniform1f(contrastLoc, params.contrast);
+          gl.uniform1f(displacementStrength1Loc, params.displacementStrength);
+          gl.uniform1f(displacementFreq1Loc, params.displacementFrequency);
+          gl.uniform1f(displacementOctaves1Loc, params.displacementOctaves);
+          gl.uniform1f(grainOpacityLoc, params.grainOpacity);
+          gl.uniform1f(grainScaleLoc, params.grainScale);
+          gl.uniform1f(grainPositionXLoc, params.grainPositionX);
+          gl.uniform1f(grainPositionYLoc, params.grainPositionY);
+          gl.uniform1f(blobBlurLoc, params.blobBlur);
+
+          // Clear and draw
+          gl.clearColor(0, 0, 0, 0);
+          gl.clear(gl.COLOR_BUFFER_BIT);
+          gl.drawArrays(gl.TRIANGLES, 0, 6);
+
+          // Apply blend modes via CSS
+          const canvasEl = canvas;
+          canvasEl.style.mixBlendMode = params.blendMode1 === params.blendMode2 ? params.blendMode1 : "normal";
+
+          // Only continue render loop if animation is active
+          if (params.animate || params.displacementAnimated) {
+            animationId = requestAnimationFrame(render);
+          } else {
+            animationId = null;
+          }
+        }
+
+        function requestRender() {
+          // Cancel existing animation frame if any
+          if (animationId) {
+            cancelAnimationFrame(animationId);
+            animationId = null;
+          }
+
+          // If animation is active, start continuous render loop
+          if (params.animate || params.displacementAnimated) {
+            render();
+          } else {
+            // Otherwise, just render once
+            render();
+          }
+        }
+
+        resizeCanvas();
+        window.addEventListener("resize", resizeCanvas);
+
+        // Setup GUI (same as grad7)
+        const cf1 = gui.addFolder("Shape 1 Colors (center → edge)");
+        cf1
+          .addColor(params, "stop1_1")
+          .name("Stop 1")
+          .onChange(() => requestRender());
+        cf1
+          .addColor(params, "stop2_1")
+          .name("Stop 2")
+          .onChange(() => requestRender());
+        cf1
+          .addColor(params, "stop3_1")
+          .name("Stop 3")
+          .onChange(() => requestRender());
+        cf1
+          .addColor(params, "stop4_1")
+          .name("Stop 4")
+          .onChange(() => requestRender());
+        cf1
+          .addColor(params, "stop5_1")
+          .name("Stop 5")
+          .onChange(() => requestRender());
+        const sp1 = gui.addFolder("Shape 1 Stop Positions");
+        sp1
+          .add(params, "stopPos1_1", 0, 1, 0.01)
+          .name("Stop 1 Position")
+          .onChange(() => requestRender());
+        sp1
+          .add(params, "stopPos2_1", 0, 1, 0.01)
+          .name("Stop 2 Position")
+          .onChange(() => requestRender());
+        sp1
+          .add(params, "stopPos3_1", 0, 1, 0.01)
+          .name("Stop 3 Position")
+          .onChange(() => requestRender());
+        sp1
+          .add(params, "stopPos4_1", 0, 1, 0.01)
+          .name("Stop 4 Position")
+          .onChange(() => requestRender());
+        sp1
+          .add(params, "stopPos5_1", 0, 1, 0.01)
+          .name("Stop 5 Position")
+          .onChange(() => requestRender());
+        const af1 = gui.addFolder("Shape 1 Alpha");
+        af1
+          .add(params, "centerOpacity1", 0, 1, 0.01)
+          .name("Center Opacity")
+          .onChange(() => requestRender());
+        af1
+          .add(params, "edgeOpacity1", 0, 1, 0.01)
+          .name("Edge Opacity")
+          .onChange(() => requestRender());
+
+        const cf2 = gui.addFolder("Shape 2 Colors (center → edge)");
+        cf2
+          .addColor(params, "stop1_2")
+          .name("Stop 1")
+          .onChange(() => requestRender());
+        cf2
+          .addColor(params, "stop2_2")
+          .name("Stop 2")
+          .onChange(() => requestRender());
+        cf2
+          .addColor(params, "stop3_2")
+          .name("Stop 3")
+          .onChange(() => requestRender());
+        cf2
+          .addColor(params, "stop4_2")
+          .name("Stop 4")
+          .onChange(() => requestRender());
+        cf2
+          .addColor(params, "stop5_2")
+          .name("Stop 5")
+          .onChange(() => requestRender());
+        const sp2 = gui.addFolder("Shape 2 Stop Positions");
+        sp2
+          .add(params, "stopPos1_2", 0, 1, 0.01)
+          .name("Stop 1 Position")
+          .onChange(() => requestRender());
+        sp2
+          .add(params, "stopPos2_2", 0, 1, 0.01)
+          .name("Stop 2 Position")
+          .onChange(() => requestRender());
+        sp2
+          .add(params, "stopPos3_2", 0, 1, 0.01)
+          .name("Stop 3 Position")
+          .onChange(() => requestRender());
+        sp2
+          .add(params, "stopPos4_2", 0, 1, 0.01)
+          .name("Stop 4 Position")
+          .onChange(() => requestRender());
+        sp2
+          .add(params, "stopPos5_2", 0, 1, 0.01)
+          .name("Stop 5 Position")
+          .onChange(() => requestRender());
+        const af2 = gui.addFolder("Shape 2 Alpha");
+        af2
+          .add(params, "centerOpacity2", 0, 1, 0.01)
+          .name("Center Opacity")
+          .onChange(() => requestRender());
+        af2
+          .add(params, "edgeOpacity2", 0, 1, 0.01)
+          .name("Edge Opacity")
+          .onChange(() => requestRender());
+
+        gui
+          .add(params, "blur", 50, 400, 1)
+          .name("Blur (spread)")
+          .onChange(() => requestRender());
+
+        const tf1 = gui.addFolder("Shape 1 Transform");
+        tf1
+          .add(params, "positionX1", -2000, 2000, 1)
+          .name("Position X")
+          .onChange(() => requestRender());
+        tf1
+          .add(params, "positionY1", -2000, 2000, 1)
+          .name("Position Y")
+          .onChange(() => requestRender());
+        tf1
+          .add(params, "scale1", 0.1, 3, 0.01)
+          .name("Scale")
+          .onChange(() => requestRender());
+        tf1
+          .add(params, "rotation1", -180, 180, 1)
+          .name("Rotation (deg)")
+          .onChange(() => requestRender());
+        tf1
+          .add(params, "skewX1", -45, 45, 0.5)
+          .name("Skew X (deg)")
+          .onChange(() => requestRender());
+        tf1
+          .add(params, "skewY1", -45, 45, 0.5)
+          .name("Skew Y (deg)")
+          .onChange(() => requestRender());
+
+        const tf2 = gui.addFolder("Shape 2 Transform");
+        tf2
+          .add(params, "positionX2", -2000, 2000, 1)
+          .name("Position X")
+          .onChange(() => requestRender());
+        tf2
+          .add(params, "positionY2", -2000, 2000, 1)
+          .name("Position Y")
+          .onChange(() => requestRender());
+        tf2
+          .add(params, "scale2", 0.1, 3, 0.01)
+          .name("Scale")
+          .onChange(() => requestRender());
+        tf2
+          .add(params, "rotation2", -180, 180, 1)
+          .name("Rotation (deg)")
+          .onChange(() => requestRender());
+        tf2
+          .add(params, "skewX2", -45, 45, 0.5)
+          .name("Skew X (deg)")
+          .onChange(() => requestRender());
+        tf2
+          .add(params, "skewY2", -45, 45, 0.5)
+          .name("Skew Y (deg)")
+          .onChange(() => requestRender());
+
+        const bf = gui.addFolder("Blob Effect");
+        bf.add(params, "blobBlur", 0, 200, 1)
+          .name("Blob Blur")
+          .onChange(() => requestRender());
+
+        const af = gui.addFolder("Animation");
+        af.add(params, "animate")
+          .name("Enable Animation")
+          .onChange(() => requestRender());
+        af.add(params, "animationSpeed", 0, 5, 0.1)
+          .name("Speed")
+          .onChange(() => requestRender());
+        af.add(params, "animationIntensity", 0, 20, 0.1)
+          .name("Strength")
+          .onChange(() => requestRender());
+        af.add(params, "animationRandomness", 0, 5, 0.1)
+          .name("Randomness")
+          .onChange(() => requestRender());
+
+        const blf = gui.addFolder("Blend Modes");
+        blf
+          .add(params, "blendMode1", [
+            "normal",
+            "multiply",
+            "screen",
+            "overlay",
+            "soft-light",
+            "hard-light",
+            "color-dodge",
+            "color-burn",
+            "darken",
+            "lighten",
+            "difference",
+            "exclusion",
+            "hue",
+            "saturation",
+            "color",
+            "luminosity",
+          ])
+          .name("Shape 1 Blend")
+          .onChange(() => {
+            canvas.style.mixBlendMode = params.blendMode1;
+            render();
+          });
+        blf
+          .add(params, "blendMode2", [
+            "normal",
+            "multiply",
+            "screen",
+            "overlay",
+            "soft-light",
+            "hard-light",
+            "color-dodge",
+            "color-burn",
+            "darken",
+            "lighten",
+            "difference",
+            "exclusion",
+            "hue",
+            "saturation",
+            "color",
+            "luminosity",
+          ])
+          .name("Shape 2 Blend")
+          .onChange(() => requestRender());
+
+        const gf = gui.addFolder("Grain Overlay");
+        gf.add(params, "grainOpacity", 0, 1, 0.01)
+          .name("Grain Opacity")
+          .onChange(() => requestRender());
+        gf.add(params, "grainScale", 0.1, 5, 0.1)
+          .name("Grain Scale")
+          .onChange(() => requestRender());
+        gf.add(params, "grainPositionX", -1500, 1500, 1)
+          .name("Grain Position X")
+          .onChange(() => requestRender());
+        gf.add(params, "grainPositionY", -1200, 1200, 1)
+          .name("Grain Position Y")
+          .onChange(() => requestRender());
+        gf.add(params, "grainBlend", [
+          "normal",
+          "multiply",
+          "screen",
+          "overlay",
+          "soft-light",
+          "hard-light",
+          "color-dodge",
+          "color-burn",
+          "darken",
+          "lighten",
+          "difference",
+          "exclusion",
+        ])
+          .name("Grain Blend Mode")
+          .onChange(() => requestRender());
+
+        const ff = gui.addFolder("Edge Feather");
+        ff.add(params, "feather", 0, 150, 1)
+          .name("Feather Amount")
+          .onChange(() => requestRender());
+
+        const vf = gui.addFolder("Visual Effects");
+        vf.add(params, "brightness", 0, 3, 0.01)
+          .name("Brightness")
+          .onChange(() => requestRender());
+        vf.add(params, "contrast", 0, 3, 0.01)
+          .name("Contrast")
+          .onChange(() => requestRender());
+
+        const df = gui.addFolder("Displacement");
+        df.add(params, "displacementStrength", 0, 1000, 5)
+          .name("Strength")
+          .onChange(() => requestRender());
+        df.add(params, "displacementFrequency", 0.005, 0.05, 0.001)
+          .name("Frequency (lower = smoother)")
+          .onChange(() => requestRender());
+        df.add(params, "displacementOctaves", 1, 8, 1)
+          .name("Octaves")
+          .onChange(() => requestRender());
+        df.add(params, "displacementAnimated")
+          .name("Lava Lamp (animated)")
+          .onChange(() => requestRender());
+        df.add(params, "displacementSpeed", 0.001, 0.02, 0.001)
+          .name("Animation Speed")
+          .onChange(() => requestRender());
+
+        // Position GUI on the left
+        setTimeout(() => {
+          gui.domElement.style.position = "fixed";
+          gui.domElement.style.top = "20px";
+          gui.domElement.style.left = "20px";
+          gui.domElement.style.zIndex = "1000";
+        }, 100);
+
+        // Preset management (same as grad7)
+        const PRESET_STORAGE_KEY = "glowsGradientPresets";
+        const LAST_PRESET_KEY = "glowsGradientLastPreset";
+
+        function savePresets() {
+          try {
+            const presets = JSON.parse(localStorage.getItem(PRESET_STORAGE_KEY) || "{}");
+            return presets;
+          } catch (e) {
+            return {};
+          }
+        }
+
+        function savePresetToStorage(presets) {
+          try {
+            localStorage.setItem(PRESET_STORAGE_KEY, JSON.stringify(presets));
+          } catch (e) {
+            console.error("Failed to save preset:", e);
+            alert("Failed to save preset. LocalStorage may be disabled or full.");
+          }
+        }
+
+        function loadPreset(presetName) {
+          const presets = savePresets();
+          if (!presets[presetName]) {
+            alert(`Preset "${presetName}" not found.`);
+            return;
+          }
+
+          const preset = presets[presetName];
+
+          Object.keys(params).forEach((key) => {
+            if (preset[key] !== undefined) {
+              params[key] = preset[key];
+            }
+          });
+
+          gui.updateDisplay();
+          requestRender();
+
+          localStorage.setItem(LAST_PRESET_KEY, presetName);
+
+          console.log(`Loaded preset: ${presetName}`);
+        }
+
+        function savePreset(presetName) {
+          if (!presetName || presetName.trim() === "") {
+            alert("Please enter a preset name.");
+            return;
+          }
+
+          const presets = savePresets();
+
+          const presetData = {};
+          Object.keys(params).forEach((key) => {
+            presetData[key] = params[key];
+          });
+
+          presets[presetName.trim()] = presetData;
+          savePresetToStorage(presets);
+
+          refreshPresetGUI();
+
+          localStorage.setItem(LAST_PRESET_KEY, presetName.trim());
+
+          console.log(`Saved preset: ${presetName}`);
+        }
+
+        function deletePreset(presetName) {
+          if (!confirm(`Delete preset "${presetName}"?`)) {
+            return;
+          }
+
+          const presets = savePresets();
+          delete presets[presetName];
+          savePresetToStorage(presets);
+
+          refreshPresetGUI();
+
+          console.log(`Deleted preset: ${presetName}`);
+        }
+
+        let presetFolder = null;
+        let presetControllers = [];
+
+        function refreshPresetGUI() {
+          presetControllers.forEach((ctrl) => {
+            try {
+              ctrl.destroy();
+            } catch (e) {}
+          });
+          presetControllers = [];
+
+          const presets = savePresets();
+          const presetNames = Object.keys(presets).sort();
+
+          if (presetNames.length === 0) {
+            if (presetFolder) {
+              presetFolder.children.forEach((child) => {
+                if (child.$name && child.$name.includes("Preset:")) {
+                  try {
+                    child.destroy();
+                  } catch (e) {}
+                }
+              });
+            }
+            return;
+          }
+
+          presetNames.forEach((presetName) => {
+            const presetObj = {
+              load: () => loadPreset(presetName),
+            };
+
+            const loadCtrl = presetFolder.add(presetObj, "load").name(`📁 ${presetName}`);
+            presetControllers.push(loadCtrl);
+
+            const deleteObj = {
+              delete: () => deletePreset(presetName),
+            };
+            const deleteCtrl = presetFolder.add(deleteObj, "delete").name(`🗑️ ${presetName}`);
+            presetControllers.push(deleteCtrl);
+          });
+        }
+
+        presetFolder = gui.addFolder("Presets");
+        presetFolder.open();
+
+        const savePresetObj = {
+          name: "",
+          save: () => {
+            if (savePresetObj.name.trim()) {
+              savePreset(savePresetObj.name);
+              savePresetObj.name = "";
+              gui.updateDisplay();
+            }
+          },
+        };
+
+        presetFolder.add(savePresetObj, "name").name("New Preset Name");
+        presetFolder.add(savePresetObj, "save").name("💾 Save Current");
+
+        const lastPresetName = localStorage.getItem(LAST_PRESET_KEY);
+        if (lastPresetName) {
+          const presets = savePresets();
+          if (presets[lastPresetName]) {
+            setTimeout(() => {
+              loadPreset(lastPresetName);
+            }, 100);
+          }
+        }
+
+        refreshPresetGUI();
+
+        // Start initial render
+        requestRender();
+      </script>
+    </div>
+  </body>
+</html>

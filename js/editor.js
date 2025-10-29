@@ -71,9 +71,11 @@ const fragmentCommon = `
   uniform float u_feather;
   uniform float u_flowSpeed;
   uniform float u_flowAmount;
+  uniform vec2 u_flowDir;
   uniform float u_noiseScale;
   uniform float u_waveHeight;
   uniform vec2 u_position;
+  uniform float u_layerOpacity; // overall layer opacity
   uniform vec3 u_colorStop1;
   uniform vec3 u_colorStop2;
   uniform vec3 u_colorStop3;
@@ -167,9 +169,9 @@ const fragmentCommon = `
   }
 `;
 
-const fragmentShaderSource = `#version 300 es\n${fragmentCommon}\n  void main(){ vec2 uv = gl_FragCoord.xy; vec2 p = (uv - u_center - u_position) / u_scale; float dist = length(p); float angle = atan(p.y, p.x); float baseRadius = 300.0; float radiusOffset = getBlobRadius(angle); float noise = blobNoise(p * u_noiseScale, u_time * u_flowSpeed); float waveDisplacement = noise * u_waveHeight * 0.3; float blobRadius = baseRadius + radiusOffset + waveDisplacement; float blobDist = dist - blobRadius; float alpha = smoothstep(u_blur, -u_blur, blobDist); float featherAlpha = smoothstep(u_feather, -u_feather, blobDist); alpha = mix(alpha, min(alpha, featherAlpha), step(0.001, u_feather)); alpha = smoothstep5(clamp(alpha, 0.0, 1.0)); vec2 flowOffset = vec2(u_time * u_flowAmount * 10.0, 0.0); float noiseValue = backgroundNoise(p * 0.5 + flowOffset, u_time, 0.0); vec3 color = gradientColor(noiseValue); outColor = vec4(color, alpha); }`;
+const fragmentShaderSource = `#version 300 es\n${fragmentCommon}\n  void main(){ vec2 uv = gl_FragCoord.xy; vec2 p = (uv - u_center - u_position) / u_scale; float dist = length(p); float angle = atan(p.y, p.x); float baseRadius = 300.0; float radiusOffset = getBlobRadius(angle); float noise = blobNoise(p * u_noiseScale, u_time * u_flowSpeed); float waveDisplacement = noise * u_waveHeight * 0.3; float blobRadius = baseRadius + radiusOffset + waveDisplacement; float blobDist = dist - blobRadius; float alpha = smoothstep(u_blur, -u_blur, blobDist); float featherAlpha = smoothstep(u_feather, -u_feather, blobDist); alpha = mix(alpha, min(alpha, featherAlpha), step(0.001, u_feather)); alpha = smoothstep5(clamp(alpha, 0.0, 1.0)); vec2 flowOffset = u_flowDir * (u_time * u_flowAmount * 10.0); float noiseValue = backgroundNoise(p * 0.5 + flowOffset, u_time, 0.0); vec3 color = gradientColor(noiseValue); alpha *= u_layerOpacity; outColor = vec4(color, alpha); }`;
 
-const fragmentShaderSource2 = `#version 300 es\n${fragmentCommon}\n  void main(){ vec2 uv = gl_FragCoord.xy; vec2 centeredP = uv - u_center - u_position; vec2 p = centeredP / u_scale; float angle = atan(p.y, p.x); float dist = length(p); float baseRadius = 300.0; float radiusOffset = getBlobRadius(angle); float noise = blobNoise2(p * u_noiseScale, u_time * u_flowSpeed); float waveDisplacement = noise * u_waveHeight * 0.3; float blobRadius = baseRadius + radiusOffset + waveDisplacement; float blobDist = dist - blobRadius; float alpha = smoothstep(u_blur, -u_blur, blobDist); if (u_feather > 0.0) { float featherAlpha = smoothstep(u_feather, -u_feather, blobDist); alpha = min(alpha, featherAlpha); } alpha = smoothstep5(clamp(alpha, 0.0, 1.0)); vec2 flowOffset = vec2(u_time * u_flowAmount * 10.0, 0.0); float noiseValue = backgroundNoise(p * 0.5 + flowOffset, u_time, 0.0); vec3 color = gradientColor(noiseValue); outColor = vec4(color, alpha); }`;
+const fragmentShaderSource2 = `#version 300 es\n${fragmentCommon}\n  void main(){ vec2 uv = gl_FragCoord.xy; vec2 centeredP = uv - u_center - u_position; vec2 p = centeredP / u_scale; float angle = atan(p.y, p.x); float dist = length(p); float baseRadius = 300.0; float radiusOffset = getBlobRadius(angle); float noise = blobNoise2(p * u_noiseScale, u_time * u_flowSpeed); float waveDisplacement = noise * u_waveHeight * 0.3; float blobRadius = baseRadius + radiusOffset + waveDisplacement; float blobDist = dist - blobRadius; float alpha = smoothstep(u_blur, -u_blur, blobDist); if (u_feather > 0.0) { float featherAlpha = smoothstep(u_feather, -u_feather, blobDist); alpha = min(alpha, featherAlpha); } alpha = smoothstep5(clamp(alpha, 0.0, 1.0)); vec2 flowOffset = u_flowDir * (u_time * u_flowAmount * 10.0); float noiseValue = backgroundNoise(p * 0.5 + flowOffset, u_time, 0.0); vec3 color = gradientColor(noiseValue); alpha *= u_layerOpacity; outColor = vec4(color, alpha); }`;
 
 function createShader(glctx, type, source) {
   const shader = glctx.createShader(type);
@@ -229,6 +231,8 @@ const blurLocation = gl.getUniformLocation(program, "u_blur");
 const featherLocation = gl.getUniformLocation(program, "u_feather");
 const flowSpeedLocation = gl.getUniformLocation(program, "u_flowSpeed");
 const flowAmountLocation = gl.getUniformLocation(program, "u_flowAmount");
+const flowDirLocation = gl.getUniformLocation(program, "u_flowDir");
+const layerOpacityLocation = gl.getUniformLocation(program, "u_layerOpacity");
 const noiseScaleLocation = gl.getUniformLocation(program, "u_noiseScale");
 const waveHeightLocation = gl.getUniformLocation(program, "u_waveHeight");
 const positionLocation_uniform = gl.getUniformLocation(program, "u_position");
@@ -254,6 +258,8 @@ const blurLocation2 = gl2.getUniformLocation(program2, "u_blur");
 const featherLocation2 = gl2.getUniformLocation(program2, "u_feather");
 const flowSpeedLocation2 = gl2.getUniformLocation(program2, "u_flowSpeed");
 const flowAmountLocation2 = gl2.getUniformLocation(program2, "u_flowAmount");
+const flowDirLocation2 = gl2.getUniformLocation(program2, "u_flowDir");
+const layerOpacityLocation2 = gl2.getUniformLocation(program2, "u_layerOpacity");
 const noiseScaleLocation2 = gl2.getUniformLocation(program2, "u_noiseScale");
 const waveHeightLocation2 = gl2.getUniformLocation(program2, "u_waveHeight");
 const positionLocation_uniform2 = gl2.getUniformLocation(program2, "u_position");
@@ -302,6 +308,9 @@ const params = {
   feather: 40.0,
   flowSpeed: 0.1,
   flowAmount: 0.5,
+  flowAngle: 0,
+  layerOpacity: 1.0,
+  layerVisible: true,
   noiseScale: 1.0,
   waveHeight: 50.0,
   blendMode: "normal",
@@ -341,6 +350,9 @@ const params2 = {
   feather: 40.0,
   flowSpeed: 0.1,
   flowAmount: 0.5,
+  flowAngle: 0,
+  layerOpacity: 1.0,
+  layerVisible: true,
   noiseScale: 1.0,
   waveHeight: 50.0,
 };
@@ -479,6 +491,8 @@ layer1Folder.add(params, "blur", 0, 200, 1).name("Blur");
 layer1Folder.add(params, "feather", 0, 150, 1).name("Feather");
 layer1Folder.add(params, "flowSpeed", 0, 1, 0.01).name("Flow Speed");
 layer1Folder.add(params, "flowAmount", 0, 2, 0.01).name("Flow Amount");
+layer1Folder.add(params, "flowAngle", 0, 360, 1).name("Flow Direction (°)");
+layer1Folder.add(params, "layerOpacity", 0, 1, 0.01).name("Layer Opacity");
 layer1Folder.add(params, "noiseScale", 0.1, 3.0, 0.1).name("Noise Scale");
 layer1Folder.add(params, "waveHeight", 0, 150, 1).name("Wave Height");
 
@@ -513,6 +527,8 @@ layer2Folder.add(params2, "blur", 0, 200, 1).name("Blur");
 layer2Folder.add(params2, "feather", 0, 150, 1).name("Feather");
 layer2Folder.add(params2, "flowSpeed", 0, 1, 0.01).name("Flow Speed");
 layer2Folder.add(params2, "flowAmount", 0, 2, 0.01).name("Flow Amount");
+layer2Folder.add(params2, "flowAngle", 0, 360, 1).name("Flow Direction (°)");
+layer2Folder.add(params2, "layerOpacity", 0, 1, 0.01).name("Layer Opacity");
 layer2Folder.add(params2, "noiseScale", 0.1, 3.0, 0.1).name("Noise Scale");
 layer2Folder.add(params2, "waveHeight", 0, 150, 1).name("Wave Height");
 
@@ -591,6 +607,9 @@ function render() {
   gl.uniform1f(featherLocation, params.feather);
   gl.uniform1f(flowSpeedLocation, params.flowSpeed);
   gl.uniform1f(flowAmountLocation, params.flowAmount);
+  const angleRad = params.flowAngle * Math.PI / 180;
+  gl.uniform2f(flowDirLocation, Math.cos(angleRad), Math.sin(angleRad));
+  gl.uniform1f(layerOpacityLocation, params.layerOpacity);
   gl.uniform1f(noiseScaleLocation, params.noiseScale);
   gl.uniform1f(waveHeightLocation, params.waveHeight);
   gl.uniform2f(positionLocation_uniform, params.positionX, params.positionY);
@@ -625,6 +644,9 @@ function render() {
   gl2.uniform1f(featherLocation2, params2.feather);
   gl2.uniform1f(flowSpeedLocation2, params2.flowSpeed);
   gl2.uniform1f(flowAmountLocation2, params2.flowAmount);
+  const angleRad2 = params2.flowAngle * Math.PI / 180;
+  gl2.uniform2f(flowDirLocation2, Math.cos(angleRad2), Math.sin(angleRad2));
+  gl2.uniform1f(layerOpacityLocation2, params2.layerOpacity);
   gl2.uniform1f(noiseScaleLocation2, params2.noiseScale);
   gl2.uniform1f(waveHeightLocation2, params2.waveHeight);
   gl2.uniform2f(positionLocation_uniform2, params2.positionX, params2.positionY);

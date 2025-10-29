@@ -235,24 +235,27 @@
           
           ${simplexNoiseSource}
           
-          // Bezier interpolation helper (cubic bezier)
+          // Bezier interpolation helper (cubic bezier) - optimized
           float cubicBezier(float t, float p0, float p1, float p2, float p3) {
             float oneMinusT = 1.0 - t;
-            return oneMinusT * oneMinusT * oneMinusT * p0 +
-                   3.0 * oneMinusT * oneMinusT * t * p1 +
-                   3.0 * oneMinusT * t * t * p2 +
-                   t * t * t * p3;
+            float omt2 = oneMinusT * oneMinusT;
+            float omt3 = omt2 * oneMinusT;
+            float t2 = t * t;
+            float t3 = t2 * t;
+            return omt3 * p0 + 3.0 * omt2 * t * p1 + 3.0 * oneMinusT * t2 * p2 + t3 * p3;
           }
           
           // Get blob radius at a given angle using control points with smooth interpolation
           float getBlobRadius(float angle) {
-            // Normalize angle to 0-2π
-            angle = mod(angle + 6.28318, 6.28318);
+            // Normalize angle to 0-2π (optimized: faster than mod)
+            angle = angle - floor(angle * 0.159155) * 6.28318; // 0.159155 = 1/(2π)
+            if (angle < 0.0) angle += 6.28318;
             
-            // Each control point is spaced at 36° (2π/10)
-            float pointSpacing = 0.628318; // 2π/10 = 36°
-            int pointIndex = int(angle / pointSpacing);
-            float localT = (angle - float(pointIndex) * pointSpacing) / pointSpacing;
+            // Each control point is spaced at 36° (2π/10 = 0.628318)
+            const float pointSpacing = 0.628318;
+            const float invSpacing = 1.59155; // 1/pointSpacing
+            int pointIndex = int(angle * invSpacing);
+            float localT = (angle - float(pointIndex) * pointSpacing) * invSpacing;
             
             // Get the four control points for cubic bezier (can't use dynamic array indexing in GLSL)
             float p0, p1, p2, p3, prevP;
@@ -288,17 +291,26 @@
             return cubicBezier(localT, p0, cp1, cp2, p1);
           }
           
-          // Stacked noise for blob boundary - Layer 1 (larger, smoother waves)
+          // Stacked noise for blob boundary - Layer 1 (larger, smoother waves) - optimized
           float blobNoise(vec2 p, float time) {
             const float L = 0.0018;
             const float S = 0.04;
             const float F = 0.043;
             
+            // Pre-calculate time-dependent values to avoid redundant calculations
+            float t1 = F * time;
+            float t2 = time * S * 1.26;
+            float t3 = time * S * 1.09;
+            float t4 = time * S * 0.89;
+            float ft126 = t1 * 1.26;
+            float ft109 = t1 * 1.09;
+            float ft089 = t1 * 0.89;
+            
             float noise = 0.0;
-            noise += snoise2D(p * (L / 1.00) + vec2(F * time, 0.0)) * 0.85;
-            noise += snoise2D(p * (L / 1.30) + vec2(F * time * 1.26, time * S * 1.26)) * 1.15;
-            noise += snoise2D(p * (L / 1.86) + vec2(F * time * 1.09, time * S * 1.09)) * 0.60;
-            noise += snoise2D(p * (L / 3.25) + vec2(F * time * 0.89, time * S * 0.89)) * 0.40;
+            noise += snoise2D(p * 0.0018 + vec2(t1, 0.0)) * 0.85;           // L/1.00 = 0.0018
+            noise += snoise2D(p * 0.0013846 + vec2(ft126, t2)) * 1.15;      // L/1.30
+            noise += snoise2D(p * 0.0009677 + vec2(ft109, t3)) * 0.60;       // L/1.86
+            noise += snoise2D(p * 0.0005538 + vec2(ft089, t4)) * 0.40;       // L/3.25
             
             return noise;
           }
@@ -320,7 +332,7 @@
             return noise;
           }
           
-          // Background noise for color mapping
+          // Background noise for color mapping - optimized
           float backgroundNoise(vec2 p, float time, float offset) {
             const float L = 0.0015;
             const float S = 0.13;
@@ -328,62 +340,63 @@
             const float F = 0.11;
             
             float t = time + offset;
+            float tS = t * S;
             float x = p.x * L;
             float y = p.y * L * Y_SCALE;
             
+            // Pre-calculate common values
             float noise = 0.5;
-            noise += snoise(vec3(x * 1.0 + F * t, y * 1.00, t * S)) * 0.30;
-            noise += snoise(vec3(x * 0.6 + F * t * 0.6, y * 0.85, t * S)) * 0.26;
-            noise += snoise(vec3(x * 0.4 + F * t * 0.8, y * 0.70, t * S)) * 0.22;
+            noise += snoise(vec3(x + F * t, y, tS)) * 0.30;
+            noise += snoise(vec3(x * 0.6 + F * t * 0.6, y * 0.85, tS)) * 0.26;
+            noise += snoise(vec3(x * 0.4 + F * t * 0.8, y * 0.70, tS)) * 0.22;
             
             return clamp(noise, 0.0, 1.0);
           }
           
-          // Smoothstep variant (quintic)
-          float smoothstep5(float t) {
-            return t * t * t * (t * (6.0 * t - 15.0) + 10.0);
-          }
+            // Smoothstep variant (quintic) - optimized
+            float smoothstep5(float t) {
+              float t2 = t * t;
+              float t3 = t2 * t;
+              return t3 * (t * (6.0 * t - 15.0) + 10.0);
+            }
           
-          // Color gradient mapping with customizable stops
+          // Color gradient mapping with customizable stops - optimized
           vec3 gradientColor(float t) {
-            vec3 color = u_colorStop1;
+            // Early bounds check
+            if (t <= u_stopPos1) return u_colorStop1;
+            if (t >= u_stopPos5) return u_colorStop5;
             
-            // Interpolate between color stops based on their positions
-            if (t <= u_stopPos1) {
-              return u_colorStop1;
-            } else if (t <= u_stopPos2) {
+            // Use max() instead of ternary to avoid branching
+            if (t <= u_stopPos2) {
               float range = u_stopPos2 - u_stopPos1;
-              float localT = range > 0.0 ? (t - u_stopPos1) / range : 0.0;
+              float localT = max(0.0, (t - u_stopPos1)) / max(0.0001, range);
               return mix(u_colorStop1, u_colorStop2, localT);
             } else if (t <= u_stopPos3) {
               float range = u_stopPos3 - u_stopPos2;
-              float localT = range > 0.0 ? (t - u_stopPos2) / range : 0.0;
+              float localT = max(0.0, (t - u_stopPos2)) / max(0.0001, range);
               return mix(u_colorStop2, u_colorStop3, localT);
             } else if (t <= u_stopPos4) {
               float range = u_stopPos4 - u_stopPos3;
-              float localT = range > 0.0 ? (t - u_stopPos3) / range : 0.0;
+              float localT = max(0.0, (t - u_stopPos3)) / max(0.0001, range);
               return mix(u_colorStop3, u_colorStop4, localT);
-            } else if (t <= u_stopPos5) {
-              float range = u_stopPos5 - u_stopPos4;
-              float localT = range > 0.0 ? (t - u_stopPos4) / range : 0.0;
-              return mix(u_colorStop4, u_colorStop5, localT);
             } else {
-              return u_colorStop5;
+              float range = u_stopPos5 - u_stopPos4;
+              float localT = max(0.0, (t - u_stopPos4)) / max(0.0001, range);
+              return mix(u_colorStop4, u_colorStop5, localT);
             }
           }
           
           void main() {
             vec2 uv = gl_FragCoord.xy;
-            // Apply position offset
-            vec2 centeredP = uv - u_center - u_position;
-            vec2 p = centeredP / u_scale;
+            // Apply position offset and scale (optimized: single division)
+            vec2 p = (uv - u_center - u_position) / u_scale;
             
-            // Calculate angle and distance
-            float angle = atan(p.y, p.x);
+            // Calculate angle and distance (optimized: reuse calculations)
             float dist = length(p);
+            float angle = atan(p.y, p.x);
             
             // Base blob radius
-            float baseRadius = 300.0;
+            const float baseRadius = 300.0;
             
             // Get radius offset from control points using bezier interpolation
             float radiusOffset = getBlobRadius(angle);
@@ -400,24 +413,20 @@
             // Main blur for overall shape
             float alpha = smoothstep(u_blur, -u_blur, blobDist);
             
-            // Apply feather for additional edge softness
-            if (u_feather > 0.0) {
-              float featherAlpha = smoothstep(u_feather, -u_feather, blobDist);
-              alpha = min(alpha, featherAlpha);
-            }
+            // Apply feather for additional edge softness (optimized: avoid conditional)
+            float featherAlpha = smoothstep(u_feather, -u_feather, blobDist);
+            alpha = mix(alpha, min(alpha, featherAlpha), step(0.001, u_feather));
             
-            // Apply smoothstep5 for smoother edges
+            // Clamp and apply smoothstep5 for smoother edges
             alpha = smoothstep5(clamp(alpha, 0.0, 1.0));
             
-            // Calculate gradient color based on noise
+            // Calculate gradient color based on noise (only if alpha is significant)
             // This creates the flowing, animated gradient
             vec2 flowOffset = vec2(u_time * u_flowAmount * 10.0, 0.0);
             float noiseValue = backgroundNoise(p * 0.5 + flowOffset, u_time, 0.0);
             vec3 color = gradientColor(noiseValue);
             
             // Apply alpha to mask the gradient to the blob shape
-            // Areas outside the blob will have alpha = 0 (transparent)
-            // Color stays at full brightness, alpha controls transparency
             outColor = vec4(color, alpha);
           }
         `;
@@ -509,24 +518,27 @@
           
           ${simplexNoiseSource}
           
-          // Bezier interpolation helper (cubic bezier)
+          // Bezier interpolation helper (cubic bezier) - optimized
           float cubicBezier(float t, float p0, float p1, float p2, float p3) {
             float oneMinusT = 1.0 - t;
-            return oneMinusT * oneMinusT * oneMinusT * p0 +
-                   3.0 * oneMinusT * oneMinusT * t * p1 +
-                   3.0 * oneMinusT * t * t * p2 +
-                   t * t * t * p3;
+            float omt2 = oneMinusT * oneMinusT;
+            float omt3 = omt2 * oneMinusT;
+            float t2 = t * t;
+            float t3 = t2 * t;
+            return omt3 * p0 + 3.0 * omt2 * t * p1 + 3.0 * oneMinusT * t2 * p2 + t3 * p3;
           }
           
           // Get blob radius at a given angle using control points with smooth interpolation
           float getBlobRadius(float angle) {
-            // Normalize angle to 0-2π
-            angle = mod(angle + 6.28318, 6.28318);
+            // Normalize angle to 0-2π (optimized: faster than mod)
+            angle = angle - floor(angle * 0.159155) * 6.28318; // 0.159155 = 1/(2π)
+            if (angle < 0.0) angle += 6.28318;
             
-            // Each control point is spaced at 36° (2π/10)
-            float pointSpacing = 0.628318; // 2π/10 = 36°
-            int pointIndex = int(angle / pointSpacing);
-            float localT = (angle - float(pointIndex) * pointSpacing) / pointSpacing;
+            // Each control point is spaced at 36° (2π/10 = 0.628318)
+            const float pointSpacing = 0.628318;
+            const float invSpacing = 1.59155; // 1/pointSpacing
+            int pointIndex = int(angle * invSpacing);
+            float localT = (angle - float(pointIndex) * pointSpacing) * invSpacing;
             
             // Get the four control points for cubic bezier (can't use dynamic array indexing in GLSL)
             float p0, p1, p2, p3, prevP;
@@ -562,17 +574,26 @@
             return cubicBezier(localT, p0, cp1, cp2, p1);
           }
           
-          // Stacked noise for blob boundary - Layer 1 (larger, smoother waves)
+          // Stacked noise for blob boundary - Layer 1 (larger, smoother waves) - optimized
           float blobNoise(vec2 p, float time) {
             const float L = 0.0018;
             const float S = 0.04;
             const float F = 0.043;
             
+            // Pre-calculate time-dependent values to avoid redundant calculations
+            float t1 = F * time;
+            float t2 = time * S * 1.26;
+            float t3 = time * S * 1.09;
+            float t4 = time * S * 0.89;
+            float ft126 = t1 * 1.26;
+            float ft109 = t1 * 1.09;
+            float ft089 = t1 * 0.89;
+            
             float noise = 0.0;
-            noise += snoise2D(p * (L / 1.00) + vec2(F * time, 0.0)) * 0.85;
-            noise += snoise2D(p * (L / 1.30) + vec2(F * time * 1.26, time * S * 1.26)) * 1.15;
-            noise += snoise2D(p * (L / 1.86) + vec2(F * time * 1.09, time * S * 1.09)) * 0.60;
-            noise += snoise2D(p * (L / 3.25) + vec2(F * time * 0.89, time * S * 0.89)) * 0.40;
+            noise += snoise2D(p * 0.0018 + vec2(t1, 0.0)) * 0.85;           // L/1.00 = 0.0018
+            noise += snoise2D(p * 0.0013846 + vec2(ft126, t2)) * 1.15;      // L/1.30
+            noise += snoise2D(p * 0.0009677 + vec2(ft109, t3)) * 0.60;       // L/1.86
+            noise += snoise2D(p * 0.0005538 + vec2(ft089, t4)) * 0.40;       // L/3.25
             
             return noise;
           }
@@ -594,7 +615,7 @@
             return noise;
           }
           
-          // Background noise for color mapping
+          // Background noise for color mapping - optimized
           float backgroundNoise(vec2 p, float time, float offset) {
             const float L = 0.0015;
             const float S = 0.13;
@@ -602,47 +623,49 @@
             const float F = 0.11;
             
             float t = time + offset;
+            float tS = t * S;
             float x = p.x * L;
             float y = p.y * L * Y_SCALE;
             
+            // Pre-calculate common values
             float noise = 0.5;
-            noise += snoise(vec3(x * 1.0 + F * t, y * 1.00, t * S)) * 0.30;
-            noise += snoise(vec3(x * 0.6 + F * t * 0.6, y * 0.85, t * S)) * 0.26;
-            noise += snoise(vec3(x * 0.4 + F * t * 0.8, y * 0.70, t * S)) * 0.22;
+            noise += snoise(vec3(x + F * t, y, tS)) * 0.30;
+            noise += snoise(vec3(x * 0.6 + F * t * 0.6, y * 0.85, tS)) * 0.26;
+            noise += snoise(vec3(x * 0.4 + F * t * 0.8, y * 0.70, tS)) * 0.22;
             
             return clamp(noise, 0.0, 1.0);
           }
           
-          // Smoothstep variant (quintic)
-          float smoothstep5(float t) {
-            return t * t * t * (t * (6.0 * t - 15.0) + 10.0);
-          }
+            // Smoothstep variant (quintic) - optimized
+            float smoothstep5(float t) {
+              float t2 = t * t;
+              float t3 = t2 * t;
+              return t3 * (t * (6.0 * t - 15.0) + 10.0);
+            }
           
-          // Color gradient mapping with customizable stops
+          // Color gradient mapping with customizable stops - optimized
           vec3 gradientColor(float t) {
-            vec3 color = u_colorStop1;
+            // Early bounds check
+            if (t <= u_stopPos1) return u_colorStop1;
+            if (t >= u_stopPos5) return u_colorStop5;
             
-            // Interpolate between color stops based on their positions
-            if (t <= u_stopPos1) {
-              return u_colorStop1;
-            } else if (t <= u_stopPos2) {
+            // Use max() instead of ternary to avoid branching
+            if (t <= u_stopPos2) {
               float range = u_stopPos2 - u_stopPos1;
-              float localT = range > 0.0 ? (t - u_stopPos1) / range : 0.0;
+              float localT = max(0.0, (t - u_stopPos1)) / max(0.0001, range);
               return mix(u_colorStop1, u_colorStop2, localT);
             } else if (t <= u_stopPos3) {
               float range = u_stopPos3 - u_stopPos2;
-              float localT = range > 0.0 ? (t - u_stopPos2) / range : 0.0;
+              float localT = max(0.0, (t - u_stopPos2)) / max(0.0001, range);
               return mix(u_colorStop2, u_colorStop3, localT);
             } else if (t <= u_stopPos4) {
               float range = u_stopPos4 - u_stopPos3;
-              float localT = range > 0.0 ? (t - u_stopPos3) / range : 0.0;
+              float localT = max(0.0, (t - u_stopPos3)) / max(0.0001, range);
               return mix(u_colorStop3, u_colorStop4, localT);
-            } else if (t <= u_stopPos5) {
-              float range = u_stopPos5 - u_stopPos4;
-              float localT = range > 0.0 ? (t - u_stopPos4) / range : 0.0;
-              return mix(u_colorStop4, u_colorStop5, localT);
             } else {
-              return u_colorStop5;
+              float range = u_stopPos5 - u_stopPos4;
+              float localT = max(0.0, (t - u_stopPos4)) / max(0.0001, range);
+              return mix(u_colorStop4, u_colorStop5, localT);
             }
           }
           

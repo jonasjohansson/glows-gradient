@@ -55,6 +55,71 @@
             id="shapePath2"
             d="M1188.54,235.26c180.01,27.4,309.95,168.4,346.15,207.69,78.91,85.63,57.53,105.56,134.62,196.15,154.07,181.08,273.75,141.76,380.77,284.62,88.16,117.68,109.99,281.93,73.08,419.23-55.11,204.96-228.76,303.76-273.08,326.92-274.92,143.71-655.71,33.91-857.69-169.23-128.95-129.69-106.06-218.01-253.85-307.69-148.72-90.25-226.41-33.89-407.69-138.46-54.77-31.59-173.09-101.84-253.85-246.15C51.27,762.35-2.34,652.21.08,504.49,1.14,439.7,4.44,238.24,161.62,104.49,334.43-42.57,560.46,5.21,611.62,16.03c87.77,18.55,154.39,54.12,196.15,80.77" />
 
+          <!-- Shared grain filter - applied after blob blur -->
+          <filter
+            id="grainFilter"
+            filterUnits="userSpaceOnUse"
+            x="-600"
+            y="-600"
+            width="3000"
+            height="2400">
+            <feImage
+              id="sharedGrainImage"
+              href="grain.png"
+              result="sharedGrainTex"
+              preserveAspectRatio="none"
+              x="-600"
+              y="-600"
+              width="3000"
+              height="2400" />
+            <!-- Apply grain opacity -->
+            <feComponentTransfer
+              in="sharedGrainTex"
+              result="sharedGrainWithOpacity">
+              <feFuncA
+                type="linear"
+                slope="0"
+                intercept="0"
+                id="sharedGrainOpacityFunc" />
+            </feComponentTransfer>
+            <!-- Blend grain with source - use composite for multiply, feBlend for others -->
+            <feBlend
+              id="grainBlend"
+              in="SourceGraphic"
+              in2="sharedGrainTex"
+              mode="overlay"
+              result="grainBlended" />
+            <!-- Multiply blend mode using arithmetic composite (result = i1 * i2) -->
+            <feComposite
+              id="grainMultiply"
+              in="SourceGraphic"
+              in2="sharedGrainTex"
+              operator="arithmetic"
+              k1="1"
+              k2="0"
+              k3="0"
+              k4="0"
+              result="grainMultiplied" />
+            <!-- Select between feBlend result and multiply result based on mode -->
+            <feComposite
+              id="grainBlendSelector"
+              in="grainBlended"
+              in2="grainMultiplied"
+              operator="over"
+              result="grainBlendedFinal" />
+            <!-- Composite with opacity control -->
+            <feComposite
+              in="SourceGraphic"
+              in2="grainBlendedFinal"
+              operator="arithmetic"
+              k1="0"
+              k2="0"
+              k3="0"
+              k4="0"
+              id="grainComposite"
+              result="finalGrain" />
+          </filter>
+
           <!-- Create gradient filter for shape 1 -->
           <filter
             id="shapeGradient1"
@@ -168,6 +233,7 @@
                 intercept="0"
                 id="brightnessB1" />
             </feComponentTransfer>
+            <!-- Final result before grain (grain applied externally after blur) -->
           </filter>
 
           <!-- Create gradient filter for shape 2 (duplicate of shape 1) -->
@@ -281,10 +347,12 @@
                 intercept="0"
                 id="brightnessB2" />
             </feComponentTransfer>
+            <!-- Final result before grain (grain applied externally after blur) -->
           </filter>
         </defs>
 
         <!-- Apply gradient filter -->
+        <!-- Grain filter will be applied after blob blur via JavaScript -->
         <g id="shapesGroup">
           <use
             id="shapeUse"
@@ -297,16 +365,6 @@
             fill="white"
             filter="url(#shapeGradient2)" />
         </g>
-        <!-- Grain overlay -->
-        <image
-          id="grainOverlay"
-          href="grain.png"
-          x="-600"
-          y="-600"
-          width="3000"
-          height="2400"
-          preserveAspectRatio="none"
-          opacity="0" />
       </svg>
       <!-- lil-gui -->
       <script type="module">
@@ -364,6 +422,13 @@
           // Grain overlay
           grainOpacity: 0,
           grainBlend: "overlay",
+          grainScale: 1.0,
+          grainPositionX: 0,
+          grainPositionY: 0,
+          // Animation
+          animate: false,
+          animationIntensity: 5,
+          animationRandomness: 1.0,
           // Feather control
           feather: 40,
           // Visual effects
@@ -503,6 +568,7 @@
         function updateTransform1() {
           const useEl = document.getElementById("shapeUse");
           if (!useEl) return;
+          // Base transforms are stored in params, animation adds offsets
           const tx = params.positionX1;
           const ty = params.positionY1;
           const s = params.scale1;
@@ -517,6 +583,7 @@
         function updateTransform2() {
           const useEl2 = document.getElementById("shapeUse2");
           if (!useEl2) return;
+          // Base transforms are stored in params, animation adds offsets
           const tx = params.positionX2;
           const ty = params.positionY2;
           const s = params.scale2;
@@ -526,13 +593,6 @@
           // Build transform string: translate → skew → rotate → scale
           const transform = `translate(${tx}, ${ty}) skewX(${skx}) skewY(${sky}) rotate(${r}) scale(${s})`;
           useEl2.setAttribute("transform", transform);
-        }
-
-        function updateBlobBlur() {
-          const shapesGroup = document.getElementById("shapesGroup");
-          if (shapesGroup) {
-            shapesGroup.style.filter = params.blobBlur > 0 ? `blur(${params.blobBlur}px)` : "none";
-          }
         }
 
         function updateBlendModes() {
@@ -547,11 +607,107 @@
         }
 
         function updateGrain() {
-          const grain = document.getElementById("grainOverlay");
-          if (grain) {
-            grain.setAttribute("opacity", String(params.grainOpacity));
-            grain.style.mixBlendMode = params.grainBlend;
+          // Update shared grain image coordinates
+          const scale = Math.max(0.1, params.grainScale);
+          const baseWidth = 3000;
+          const baseHeight = 2400;
+          const centerX = 900;
+          const centerY = 600;
+
+          const scaledWidth = baseWidth / scale;
+          const scaledHeight = baseHeight / scale;
+          const scaledX = centerX - scaledWidth / 2 + params.grainPositionX;
+          const scaledY = centerY - scaledHeight / 2 + params.grainPositionY;
+
+          const sharedGrainImage = document.getElementById("sharedGrainImage");
+          if (sharedGrainImage) {
+            sharedGrainImage.setAttribute("x", String(scaledX));
+            sharedGrainImage.setAttribute("y", String(scaledY));
+            sharedGrainImage.setAttribute("width", String(scaledWidth));
+            sharedGrainImage.setAttribute("height", String(scaledHeight));
           }
+
+          // Update grain opacity
+          const sharedGrainOpacityFunc = document.getElementById("sharedGrainOpacityFunc");
+          if (sharedGrainOpacityFunc) {
+            sharedGrainOpacityFunc.setAttribute("intercept", String(params.grainOpacity));
+          }
+
+          // Update arithmetic composite for opacity interpolation
+          const opacity = params.grainOpacity;
+          const k2 = 1 - opacity;
+          const k3 = opacity;
+
+          const grainComposite = document.getElementById("grainComposite");
+          if (grainComposite) {
+            grainComposite.setAttribute("k2", String(k2));
+            grainComposite.setAttribute("k3", String(k3));
+          }
+
+          // Update grain blend mode
+          const grainBlend = document.getElementById("grainBlend");
+          const grainBlendSelector = document.getElementById("grainBlendSelector");
+
+          if (params.grainBlend === "multiply") {
+            // Use arithmetic composite for multiply (result = i1 * i2)
+            // The grainMultiply composite already does this with k1=1
+            if (grainBlendSelector) {
+              // Select the multiply result
+              grainBlendSelector.setAttribute("operator", "arithmetic");
+              grainBlendSelector.setAttribute("k1", "0");
+              grainBlendSelector.setAttribute("k2", "0");
+              grainBlendSelector.setAttribute("k3", "1"); // Use in2 (grainMultiplied)
+              grainBlendSelector.setAttribute("k4", "0");
+              grainBlendSelector.setAttribute("in", "SourceGraphic");
+              grainBlendSelector.setAttribute("in2", "grainMultiplied");
+            }
+          } else {
+            // Use feBlend for other modes
+            const blendModeMap = {
+              normal: "normal",
+              screen: "screen",
+              darken: "darken",
+              lighten: "lighten",
+              overlay: "multiply", // approximate
+              "soft-light": "multiply",
+              "hard-light": "multiply",
+              "color-dodge": "screen",
+              "color-burn": "darken",
+              difference: "normal",
+              exclusion: "normal",
+            };
+
+            const svgBlendMode = blendModeMap[params.grainBlend] || "normal";
+            if (grainBlend) {
+              grainBlend.setAttribute("mode", svgBlendMode);
+            }
+            if (grainBlendSelector) {
+              // Show blend result - pass through grainBlended
+              grainBlendSelector.setAttribute("operator", "arithmetic");
+              grainBlendSelector.setAttribute("k1", "0");
+              grainBlendSelector.setAttribute("k2", "0");
+              grainBlendSelector.setAttribute("k3", "1"); // Use in2 (grainBlended)
+              grainBlendSelector.setAttribute("k4", "0");
+              grainBlendSelector.setAttribute("in", "SourceGraphic");
+              grainBlendSelector.setAttribute("in2", "grainBlended");
+            }
+          }
+
+          // Apply grain filter after blob blur
+          const shapesGroup = document.getElementById("shapesGroup");
+          if (shapesGroup && params.grainOpacity > 0) {
+            // Apply grain filter and blob blur together
+            const blobBlur = params.blobBlur > 0 ? `blur(${params.blobBlur}px)` : "";
+            const grainFilter = `url(#grainFilter)`;
+            shapesGroup.style.filter = blobBlur ? `${blobBlur} ${grainFilter}` : grainFilter;
+          } else if (shapesGroup) {
+            // Only blob blur if grain is off
+            shapesGroup.style.filter = params.blobBlur > 0 ? `blur(${params.blobBlur}px)` : "none";
+          }
+        }
+
+        function updateBlobBlur() {
+          updateGrain(); // Grain needs to be reapplied with blob blur
         }
 
         function updateFeather() {
@@ -712,6 +868,164 @@
         const bf = gui.addFolder("Blob Effect");
         bf.add(params, "blobBlur", 0, 200, 1).name("Blob Blur").onChange(updateBlobBlur);
 
+        // Animation
+        let animationId = null;
+        let baseTransform1 = { x: 0, y: 0, rotation: 0 };
+        let baseTransform2 = { x: 0, y: 0, rotation: 0 };
+        let animationTime = 0;
+
+        function startAnimation() {
+          if (animationId) cancelAnimationFrame(animationId);
+
+          if (params.animate) {
+            function animate() {
+              animationTime += 0.01;
+
+              // Randomness factor - uses additional wave frequencies for smooth randomness
+              const randomness = params.animationRandomness;
+              const baseIntensity = params.animationIntensity;
+
+              // Generate multiple wave components for smooth randomness (no stuttering)
+              // Shape 1 - multiple frequency waves with randomness as additional wave layers
+              const wave1X = Math.sin(animationTime * 0.7);
+              const wave2X = Math.cos(animationTime * 1.3);
+              const wave3X = Math.sin(animationTime * 2.1);
+              // Additional waves for randomness - smooth continuous variation
+              const randomWave1X = Math.sin(animationTime * (3.7 + randomness * 0.3));
+              const randomWave2X = Math.cos(animationTime * (4.1 + randomness * 0.5));
+              const randomWave3X = Math.sin(animationTime * (5.3 + randomness * 0.4));
+              const noiseX = (randomWave1X * 0.4 + randomWave2X * 0.35 + randomWave3X * 0.25) * randomness;
+              const offsetX1 = (wave1X * 0.5 + wave2X * 0.3 + wave3X * 0.2 + noiseX * 0.3) * baseIntensity;
+
+              const wave1Y = Math.cos(animationTime * 0.9);
+              const wave2Y = Math.sin(animationTime * 1.5);
+              const wave3Y = Math.cos(animationTime * 2.3);
+              const randomWave1Y = Math.cos(animationTime * (3.9 + randomness * 0.4));
+              const randomWave2Y = Math.sin(animationTime * (4.3 + randomness * 0.6));
+              const randomWave3Y = Math.cos(animationTime * (5.7 + randomness * 0.3));
+              const noiseY = (randomWave1Y * 0.4 + randomWave2Y * 0.35 + randomWave3Y * 0.25) * randomness;
+              const offsetY1 = (wave1Y * 0.5 + wave2Y * 0.3 + wave3Y * 0.2 + noiseY * 0.3) * baseIntensity;
+
+              const wave1R = Math.sin(animationTime * 0.5);
+              const wave2R = Math.cos(animationTime * 1.1);
+              const randomWave1R = Math.sin(animationTime * (3.5 + randomness * 0.25));
+              const randomWave2R = Math.cos(animationTime * (4.7 + randomness * 0.35));
+              const noiseR = (randomWave1R * 0.5 + randomWave2R * 0.5) * randomness;
+              const rotation1 = (wave1R * 0.6 + wave2R * 0.4 + noiseR * 0.2) * baseIntensity * 0.5;
+
+              // Shape 2 - different frequencies + smooth randomness waves
+              const wave1X2 = Math.cos(animationTime * 0.8);
+              const wave2X2 = Math.sin(animationTime * 1.4);
+              const wave3X2 = Math.cos(animationTime * 2.2);
+              const randomWave1X2 = Math.cos(animationTime * (3.8 + randomness * 0.35));
+              const randomWave2X2 = Math.sin(animationTime * (4.2 + randomness * 0.45));
+              const randomWave3X2 = Math.cos(animationTime * (5.4 + randomness * 0.4));
+              const noiseX2 = (randomWave1X2 * 0.4 + randomWave2X2 * 0.35 + randomWave3X2 * 0.25) * randomness;
+              const offsetX2 = (wave1X2 * 0.5 + wave2X2 * 0.3 + wave3X2 * 0.2 + noiseX2 * 0.3) * baseIntensity;
+
+              const wave1Y2 = Math.sin(animationTime * 0.6);
+              const wave2Y2 = Math.cos(animationTime * 1.2);
+              const wave3Y2 = Math.sin(animationTime * 2.4);
+              const randomWave1Y2 = Math.sin(animationTime * (4.0 + randomness * 0.3));
+              const randomWave2Y2 = Math.cos(animationTime * (4.4 + randomness * 0.5));
+              const randomWave3Y2 = Math.sin(animationTime * (5.8 + randomness * 0.35));
+              const noiseY2 = (randomWave1Y2 * 0.4 + randomWave2Y2 * 0.35 + randomWave3Y2 * 0.25) * randomness;
+              const offsetY2 = (wave1Y2 * 0.5 + wave2Y2 * 0.3 + wave3Y2 * 0.2 + noiseY2 * 0.3) * baseIntensity;
+
+              const wave1R2 = Math.cos(animationTime * 0.4);
+              const wave2R2 = Math.sin(animationTime * 1.0);
+              const randomWave1R2 = Math.cos(animationTime * (3.6 + randomness * 0.3));
+              const randomWave2R2 = Math.sin(animationTime * (4.8 + randomness * 0.4));
+              const noiseR2 = (randomWave1R2 * 0.5 + randomWave2R2 * 0.5) * randomness;
+              const rotation2 = (wave1R2 * 0.6 + wave2R2 * 0.4 + noiseR2 * 0.2) * baseIntensity * 0.5;
+
+              // Animated skew offsets - Shape 1
+              const wave1SkewX = Math.sin(animationTime * 0.6);
+              const wave2SkewX = Math.cos(animationTime * 1.2);
+              const randomWave1SkewX = Math.sin(animationTime * (4.1 + randomness * 0.3));
+              const randomWave2SkewX = Math.cos(animationTime * (4.9 + randomness * 0.4));
+              const noiseSkewX = (randomWave1SkewX * 0.5 + randomWave2SkewX * 0.5) * randomness;
+              const skewXOffset1 = (wave1SkewX * 0.6 + wave2SkewX * 0.4 + noiseSkewX * 0.2) * baseIntensity * 0.3;
+
+              const wave1SkewY = Math.cos(animationTime * 0.65);
+              const wave2SkewY = Math.sin(animationTime * 1.25);
+              const randomWave1SkewY = Math.cos(animationTime * (4.2 + randomness * 0.35));
+              const randomWave2SkewY = Math.sin(animationTime * (5.1 + randomness * 0.45));
+              const noiseSkewY = (randomWave1SkewY * 0.5 + randomWave2SkewY * 0.5) * randomness;
+              const skewYOffset1 = (wave1SkewY * 0.6 + wave2SkewY * 0.4 + noiseSkewY * 0.2) * baseIntensity * 0.3;
+
+              // Animated skew offsets - Shape 2
+              const wave1SkewX2 = Math.cos(animationTime * 0.55);
+              const wave2SkewX2 = Math.sin(animationTime * 1.15);
+              const randomWave1SkewX2 = Math.cos(animationTime * (4.3 + randomness * 0.32));
+              const randomWave2SkewX2 = Math.sin(animationTime * (5.0 + randomness * 0.42));
+              const noiseSkewX2 = (randomWave1SkewX2 * 0.5 + randomWave2SkewX2 * 0.5) * randomness;
+              const skewXOffset2 = (wave1SkewX2 * 0.6 + wave2SkewX2 * 0.4 + noiseSkewX2 * 0.2) * baseIntensity * 0.3;
+
+              const wave1SkewY2 = Math.sin(animationTime * 0.58);
+              const wave2SkewY2 = Math.cos(animationTime * 1.22);
+              const randomWave1SkewY2 = Math.sin(animationTime * (4.4 + randomness * 0.38));
+              const randomWave2SkewY2 = Math.cos(animationTime * (5.2 + randomness * 0.48));
+              const noiseSkewY2 = (randomWave1SkewY2 * 0.5 + randomWave2SkewY2 * 0.5) * randomness;
+              const skewYOffset2 = (wave1SkewY2 * 0.6 + wave2SkewY2 * 0.4 + noiseSkewY2 * 0.2) * baseIntensity * 0.3;
+
+              // Apply to transforms
+              const useEl1 = document.getElementById("shapeUse");
+              const useEl2 = document.getElementById("shapeUse2");
+
+              if (useEl1) {
+                const tx = params.positionX1 + offsetX1;
+                const ty = params.positionY1 + offsetY1;
+                const s = params.scale1;
+                const r = params.rotation1 + rotation1;
+                const skx = params.skewX1 + skewXOffset1;
+                const sky = params.skewY1 + skewYOffset1;
+                const transform = `translate(${tx}, ${ty}) skewX(${skx}) skewY(${sky}) rotate(${r}) scale(${s})`;
+                useEl1.setAttribute("transform", transform);
+              }
+
+              if (useEl2) {
+                const tx = params.positionX2 + offsetX2;
+                const ty = params.positionY2 + offsetY2;
+                const s = params.scale2;
+                const r = params.rotation2 + rotation2;
+                const skx = params.skewX2 + skewXOffset2;
+                const sky = params.skewY2 + skewYOffset2;
+                const transform = `translate(${tx}, ${ty}) skewX(${skx}) skewY(${sky}) rotate(${r}) scale(${s})`;
+                useEl2.setAttribute("transform", transform);
+              }
+
+              animationId = requestAnimationFrame(animate);
+            }
+            animate();
+          } else {
+            // Reset to base transforms when animation stops
+            updateTransform1();
+            updateTransform2();
+          }
+        }
+
+        function updateAnimation() {
+          startAnimation();
+        }
+
+        const af = gui.addFolder("Animation");
+        af.add(params, "animate").name("Enable Animation").onChange(updateAnimation);
+        af.add(params, "animationIntensity", 0, 20, 0.1)
+          .name("Intensity")
+          .onChange(() => {
+            if (params.animate) {
+              // Animation will update automatically
+            }
+          });
+        af.add(params, "animationRandomness", 0, 5, 0.1)
+          .name("Randomness")
+          .onChange(() => {
+            if (params.animate) {
+              // Animation will update automatically
+            }
+          });
+
         const blf = gui.addFolder("Blend Modes");
         blf
           .add(params, "blendMode1", [
@@ -758,6 +1072,9 @@
 
         const gf = gui.addFolder("Grain Overlay");
         gf.add(params, "grainOpacity", 0, 1, 0.01).name("Grain Opacity").onChange(updateGrain);
+        gf.add(params, "grainScale", 0.1, 5, 0.1).name("Grain Scale").onChange(updateGrain);
+        gf.add(params, "grainPositionX", -1500, 1500, 1).name("Grain Position X").onChange(updateGrain);
+        gf.add(params, "grainPositionY", -1200, 1200, 1).name("Grain Position Y").onChange(updateGrain);
         gf.add(params, "grainBlend", [
           "normal",
           "multiply",

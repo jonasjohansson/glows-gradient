@@ -76,8 +76,16 @@ const fragmentCommon = `
   uniform vec2 u_flowDir;
   uniform float u_noiseScale;
   uniform float u_waveHeight;
+  uniform float u_waveSpeed;
   uniform vec2 u_position;
   uniform float u_layerOpacity; // overall layer opacity
+  uniform float u_patternScale;
+  uniform float u_patternSpeed;
+  uniform float u_patternRotation;
+  uniform vec2 u_patternOffset;
+  uniform float u_patternIntensity;
+  uniform float u_patternContrast;
+  uniform float u_patternTurbulence;
   uniform vec3 u_colorStop1;
   uniform vec3 u_colorStop2;
   uniform vec3 u_colorStop3;
@@ -157,7 +165,21 @@ const fragmentCommon = `
     noise += snoise(vec3(x + F * t, y, tS)) * 0.30;
     noise += snoise(vec3(x * 0.6 + F * t * 0.6, y * 0.85, tS)) * 0.26;
     noise += snoise(vec3(x * 0.4 + F * t * 0.8, y * 0.70, tS)) * 0.22;
+    float turbulence = u_patternTurbulence;
+    if (turbulence > 0.0) {
+      vec2 turbCoord = p * 0.003 + vec2(time * 0.05, time * 0.07);
+      vec2 turb = vec2(snoise2D(turbCoord), snoise2D(turbCoord + vec2(100.0, 0.0))) * turbulence * 50.0;
+      noise += snoise(vec3((x + turb.x) * 0.8 + F * t * 0.9, (y + turb.y) * 0.75, tS * 0.85)) * 0.15 * turbulence;
+    }
+    noise = clamp(noise, 0.0, 1.0);
+    float contrast = u_patternContrast;
+    noise = (noise - 0.5) * contrast + 0.5;
     return clamp(noise, 0.0, 1.0);
+  }
+  vec2 rotate2D(vec2 v, float angle) {
+    float s = sin(angle);
+    float c = cos(angle);
+    return vec2(v.x * c - v.y * s, v.x * s + v.y * c);
   }
   float smoothstep5(float t) {
     float t2 = t * t; float t3 = t2 * t; return t3 * (t * (6.0 * t - 15.0) + 10.0);
@@ -171,9 +193,9 @@ const fragmentCommon = `
   }
 `;
 
-const fragmentShaderSource = `#version 300 es\n${fragmentCommon}\n  void main(){ vec2 uv = gl_FragCoord.xy; vec2 p = (uv - u_center - u_position) / vec2(u_scaleX, u_scaleY); float dist = length(p); float angle = atan(p.y, p.x); float baseRadius = 300.0; float radiusOffset = getBlobRadius(angle); float noise = blobNoise(p * u_noiseScale, u_time * u_flowSpeed); float waveDisplacement = noise * u_waveHeight * 0.3; float blobRadius = baseRadius + radiusOffset + waveDisplacement; float blobDist = dist - blobRadius; float alpha = smoothstep(u_blur, -u_blur, blobDist); float featherAlpha = smoothstep(u_feather, -u_feather, blobDist); alpha = mix(alpha, min(alpha, featherAlpha), step(0.001, u_feather)); alpha = smoothstep5(clamp(alpha, 0.0, 1.0)); vec2 flowOffset = u_flowDir * (u_time * u_flowAmount * 10.0); float noiseValue = backgroundNoise(p * 0.5 + flowOffset, u_time, 0.0); vec3 color = gradientColor(noiseValue); alpha *= u_layerOpacity; outColor = vec4(color, alpha); }`;
+const fragmentShaderSource = `#version 300 es\n${fragmentCommon}\n  void main(){ vec2 uv = gl_FragCoord.xy; vec2 p = (uv - u_center - u_position) / vec2(u_scaleX, u_scaleY); float dist = length(p); float angle = atan(p.y, p.x); float baseRadius = 300.0; float radiusOffset = getBlobRadius(angle); float noise = blobNoise(p * u_noiseScale, u_time * u_waveSpeed); float waveDisplacement = noise * u_waveHeight * 0.3; float blobRadius = baseRadius + radiusOffset + waveDisplacement; float blobDist = dist - blobRadius; float alpha = smoothstep(u_blur, -u_blur, blobDist); float featherAlpha = smoothstep(u_feather, -u_feather, blobDist); alpha = mix(alpha, min(alpha, featherAlpha), step(0.001, u_feather)); alpha = smoothstep5(clamp(alpha, 0.0, 1.0)); vec2 flowOffset = u_flowDir * (u_time * u_flowAmount * u_flowSpeed * 10.0); vec2 patternP = rotate2D((p + u_patternOffset) * u_patternScale, u_patternRotation); float noiseValue = backgroundNoise(patternP + flowOffset, u_time * u_patternSpeed, 0.0); noiseValue = mix(0.5, noiseValue, u_patternIntensity); vec3 color = gradientColor(noiseValue); alpha *= u_layerOpacity; outColor = vec4(color, alpha); }`;
 
-const fragmentShaderSource2 = `#version 300 es\n${fragmentCommon}\n  void main(){ vec2 uv = gl_FragCoord.xy; vec2 centeredP = uv - u_center - u_position; vec2 p = centeredP / vec2(u_scaleX, u_scaleY); float angle = atan(p.y, p.x); float dist = length(p); float baseRadius = 300.0; float radiusOffset = getBlobRadius(angle); float noise = blobNoise2(p * u_noiseScale, u_time * u_flowSpeed); float waveDisplacement = noise * u_waveHeight * 0.3; float blobRadius = baseRadius + radiusOffset + waveDisplacement; float blobDist = dist - blobRadius; float alpha = smoothstep(u_blur, -u_blur, blobDist); if (u_feather > 0.0) { float featherAlpha = smoothstep(u_feather, -u_feather, blobDist); alpha = min(alpha, featherAlpha); } alpha = smoothstep5(clamp(alpha, 0.0, 1.0)); vec2 flowOffset = u_flowDir * (u_time * u_flowAmount * 10.0); float noiseValue = backgroundNoise(p * 0.5 + flowOffset, u_time, 0.0); vec3 color = gradientColor(noiseValue); alpha *= u_layerOpacity; outColor = vec4(color, alpha); }`;
+const fragmentShaderSource2 = `#version 300 es\n${fragmentCommon}\n  void main(){ vec2 uv = gl_FragCoord.xy; vec2 centeredP = uv - u_center - u_position; vec2 p = centeredP / vec2(u_scaleX, u_scaleY); float angle = atan(p.y, p.x); float dist = length(p); float baseRadius = 300.0; float radiusOffset = getBlobRadius(angle); float noise = blobNoise2(p * u_noiseScale, u_time * u_waveSpeed); float waveDisplacement = noise * u_waveHeight * 0.3; float blobRadius = baseRadius + radiusOffset + waveDisplacement; float blobDist = dist - blobRadius; float alpha = smoothstep(u_blur, -u_blur, blobDist); if (u_feather > 0.0) { float featherAlpha = smoothstep(u_feather, -u_feather, blobDist); alpha = min(alpha, featherAlpha); } alpha = smoothstep5(clamp(alpha, 0.0, 1.0)); vec2 flowOffset = u_flowDir * (u_time * u_flowAmount * u_flowSpeed * 10.0); vec2 patternP = rotate2D((p + u_patternOffset) * u_patternScale, u_patternRotation); float noiseValue = backgroundNoise(patternP + flowOffset, u_time * u_patternSpeed, 0.0); noiseValue = mix(0.5, noiseValue, u_patternIntensity); vec3 color = gradientColor(noiseValue); alpha *= u_layerOpacity; outColor = vec4(color, alpha); }`;
 
 function createShader(glctx, type, source) {
   const shader = glctx.createShader(type);
@@ -239,7 +261,15 @@ const flowDirLocation = gl.getUniformLocation(program, "u_flowDir");
 const layerOpacityLocation = gl.getUniformLocation(program, "u_layerOpacity");
 const noiseScaleLocation = gl.getUniformLocation(program, "u_noiseScale");
 const waveHeightLocation = gl.getUniformLocation(program, "u_waveHeight");
+const waveSpeedLocation = gl.getUniformLocation(program, "u_waveSpeed");
 const positionLocation_uniform = gl.getUniformLocation(program, "u_position");
+const patternScaleLocation = gl.getUniformLocation(program, "u_patternScale");
+const patternSpeedLocation = gl.getUniformLocation(program, "u_patternSpeed");
+const patternRotationLocation = gl.getUniformLocation(program, "u_patternRotation");
+const patternOffsetLocation = gl.getUniformLocation(program, "u_patternOffset");
+const patternIntensityLocation = gl.getUniformLocation(program, "u_patternIntensity");
+const patternContrastLocation = gl.getUniformLocation(program, "u_patternContrast");
+const patternTurbulenceLocation = gl.getUniformLocation(program, "u_patternTurbulence");
 const colorStop1Location = gl.getUniformLocation(program, "u_colorStop1");
 const colorStop2Location = gl.getUniformLocation(program, "u_colorStop2");
 const colorStop3Location = gl.getUniformLocation(program, "u_colorStop3");
@@ -268,7 +298,15 @@ const flowDirLocation2 = gl2.getUniformLocation(program2, "u_flowDir");
 const layerOpacityLocation2 = gl2.getUniformLocation(program2, "u_layerOpacity");
 const noiseScaleLocation2 = gl2.getUniformLocation(program2, "u_noiseScale");
 const waveHeightLocation2 = gl2.getUniformLocation(program2, "u_waveHeight");
+const waveSpeedLocation2 = gl2.getUniformLocation(program2, "u_waveSpeed");
 const positionLocation_uniform2 = gl2.getUniformLocation(program2, "u_position");
+const patternScaleLocation2 = gl2.getUniformLocation(program2, "u_patternScale");
+const patternSpeedLocation2 = gl2.getUniformLocation(program2, "u_patternSpeed");
+const patternRotationLocation2 = gl2.getUniformLocation(program2, "u_patternRotation");
+const patternOffsetLocation2 = gl2.getUniformLocation(program2, "u_patternOffset");
+const patternIntensityLocation2 = gl2.getUniformLocation(program2, "u_patternIntensity");
+const patternContrastLocation2 = gl2.getUniformLocation(program2, "u_patternContrast");
+const patternTurbulenceLocation2 = gl2.getUniformLocation(program2, "u_patternTurbulence");
 const colorStop1Location2 = gl2.getUniformLocation(program2, "u_colorStop1");
 const colorStop2Location2 = gl2.getUniformLocation(program2, "u_colorStop2");
 const colorStop3Location2 = gl2.getUniformLocation(program2, "u_colorStop3");
@@ -321,6 +359,15 @@ const params = {
   layerVisible: true,
   noiseScale: 1.0,
   waveHeight: 50.0,
+  waveSpeed: 0.1,
+  patternScale: 0.5,
+  patternSpeed: 1.0,
+  patternRotation: 0.0,
+  patternOffsetX: 0.0,
+  patternOffsetY: 0.0,
+  patternIntensity: 1.0,
+  patternContrast: 1.0,
+  patternTurbulence: 0.0,
   blendMode: "normal",
   globalBlur: 0.0,
   grainOpacity: 0.0,
@@ -365,6 +412,15 @@ const params2 = {
   layerVisible: true,
   noiseScale: 1.0,
   waveHeight: 50.0,
+  waveSpeed: 0.1,
+  patternScale: 0.5,
+  patternSpeed: 1.0,
+  patternRotation: 0.0,
+  patternOffsetX: 0.0,
+  patternOffsetY: 0.0,
+  patternIntensity: 1.0,
+  patternContrast: 1.0,
+  patternTurbulence: 0.0,
 };
 
 const blendModes = [
@@ -503,11 +559,21 @@ layer1Folder.add(params, "scaleX", 0.25, 3.0, 0.01).name("Width (Scale X)");
 layer1Folder.add(params, "scaleY", 0.25, 3.0, 0.01).name("Height (Scale Y)");
 layer1Folder.add(params, "blur", 0, 200, 1).name("Blur");
 layer1Folder.add(params, "feather", 0, 150, 1).name("Feather");
-layer1Folder.add(params, "flowSpeed", 0, 1, 0.01).name("Flow Speed");
-layer1Folder.add(params, "flowAmount", 0, 2, 0.01).name("Flow Amount");
+layer1Folder.add(params, "flowSpeed", 0, 5, 0.1).name("Flow Speed");
+layer1Folder.add(params, "flowAmount", 0, 10, 0.1).name("Flow Amount");
 layer1Folder.add(params, "flowAngle", 0, 360, 1).name("Flow Direction (°)");
-layer1Folder.add(params, "noiseScale", 0.1, 3.0, 0.1).name("Noise Scale");
-layer1Folder.add(params, "waveHeight", 0, 150, 1).name("Wave Height");
+layer1Folder.add(params, "noiseScale", 0.1, 5.0, 0.1).name("Noise Scale");
+layer1Folder.add(params, "waveHeight", 0, 300, 1).name("Wave Height");
+layer1Folder.add(params, "waveSpeed", 0, 5, 0.1).name("Wave Speed");
+const patternFolder1 = layer1Folder.addFolder("Pattern Controls");
+patternFolder1.add(params, "patternScale", 0.1, 10.0, 0.1).name("Pattern Scale");
+patternFolder1.add(params, "patternSpeed", 0, 10, 0.1).name("Pattern Speed");
+patternFolder1.add(params, "patternRotation", 0, 360, 1).name("Pattern Rotation (°)");
+patternFolder1.add(params, "patternOffsetX", -1000, 1000, 1).name("Pattern Offset X");
+patternFolder1.add(params, "patternOffsetY", -1000, 1000, 1).name("Pattern Offset Y");
+patternFolder1.add(params, "patternIntensity", 0, 5, 0.1).name("Pattern Intensity");
+patternFolder1.add(params, "patternContrast", 0, 10, 0.1).name("Pattern Contrast");
+patternFolder1.add(params, "patternTurbulence", 0, 5, 0.1).name("Pattern Turbulence");
 
 // Control points layer 1
 const controlPointsFolder1 = layer1Folder.addFolder("Control Points");
@@ -540,11 +606,21 @@ layer2Folder.add(params2, "scaleX", 0.25, 3.0, 0.01).name("Width (Scale X)");
 layer2Folder.add(params2, "scaleY", 0.25, 3.0, 0.01).name("Height (Scale Y)");
 layer2Folder.add(params2, "blur", 0, 200, 1).name("Blur");
 layer2Folder.add(params2, "feather", 0, 150, 1).name("Feather");
-layer2Folder.add(params2, "flowSpeed", 0, 1, 0.01).name("Flow Speed");
-layer2Folder.add(params2, "flowAmount", 0, 2, 0.01).name("Flow Amount");
+layer2Folder.add(params2, "flowSpeed", 0, 5, 0.1).name("Flow Speed");
+layer2Folder.add(params2, "flowAmount", 0, 10, 0.1).name("Flow Amount");
 layer2Folder.add(params2, "flowAngle", 0, 360, 1).name("Flow Direction (°)");
-layer2Folder.add(params2, "noiseScale", 0.1, 3.0, 0.1).name("Noise Scale");
-layer2Folder.add(params2, "waveHeight", 0, 150, 1).name("Wave Height");
+layer2Folder.add(params2, "noiseScale", 0.1, 5.0, 0.1).name("Noise Scale");
+layer2Folder.add(params2, "waveHeight", 0, 300, 1).name("Wave Height");
+layer2Folder.add(params2, "waveSpeed", 0, 5, 0.1).name("Wave Speed");
+const patternFolder2 = layer2Folder.addFolder("Pattern Controls");
+patternFolder2.add(params2, "patternScale", 0.1, 10.0, 0.1).name("Pattern Scale");
+patternFolder2.add(params2, "patternSpeed", 0, 10, 0.1).name("Pattern Speed");
+patternFolder2.add(params2, "patternRotation", 0, 360, 1).name("Pattern Rotation (°)");
+patternFolder2.add(params2, "patternOffsetX", -1000, 1000, 1).name("Pattern Offset X");
+patternFolder2.add(params2, "patternOffsetY", -1000, 1000, 1).name("Pattern Offset Y");
+patternFolder2.add(params2, "patternIntensity", 0, 5, 0.1).name("Pattern Intensity");
+patternFolder2.add(params2, "patternContrast", 0, 10, 0.1).name("Pattern Contrast");
+patternFolder2.add(params2, "patternTurbulence", 0, 5, 0.1).name("Pattern Turbulence");
 
   // Control points layer 2 (folded by default)
   const controlPointsFolder2 = layer2Folder.addFolder("Control Points");
@@ -635,6 +711,14 @@ function render() {
   gl.uniform1f(layerOpacityLocation, params.layerOpacity);
   gl.uniform1f(noiseScaleLocation, params.noiseScale);
   gl.uniform1f(waveHeightLocation, params.waveHeight);
+  gl.uniform1f(waveSpeedLocation, params.waveSpeed);
+  gl.uniform1f(patternScaleLocation, params.patternScale);
+  gl.uniform1f(patternSpeedLocation, params.patternSpeed);
+  gl.uniform1f(patternRotationLocation, params.patternRotation * Math.PI / 180);
+  gl.uniform2f(patternOffsetLocation, params.patternOffsetX, params.patternOffsetY);
+  gl.uniform1f(patternIntensityLocation, params.patternIntensity);
+  gl.uniform1f(patternContrastLocation, params.patternContrast);
+  gl.uniform1f(patternTurbulenceLocation, params.patternTurbulence);
   gl.uniform2f(positionLocation_uniform, params.positionX, params.positionY);
   const rgb1 = hexToRgb(params.colorStop1); const rgb2 = hexToRgb(params.colorStop2); const rgb3 = hexToRgb(params.colorStop3); const rgb4 = hexToRgb(params.colorStop4); const rgb5 = hexToRgb(params.colorStop5);
   gl.uniform3f(colorStop1Location, rgb1[0], rgb1[1], rgb1[2]);
@@ -674,6 +758,14 @@ function render() {
   gl2.uniform1f(layerOpacityLocation2, params2.layerOpacity);
   gl2.uniform1f(noiseScaleLocation2, params2.noiseScale);
   gl2.uniform1f(waveHeightLocation2, params2.waveHeight);
+  gl2.uniform1f(waveSpeedLocation2, params2.waveSpeed);
+  gl2.uniform1f(patternScaleLocation2, params2.patternScale);
+  gl2.uniform1f(patternSpeedLocation2, params2.patternSpeed);
+  gl2.uniform1f(patternRotationLocation2, params2.patternRotation * Math.PI / 180);
+  gl2.uniform2f(patternOffsetLocation2, params2.patternOffsetX, params2.patternOffsetY);
+  gl2.uniform1f(patternIntensityLocation2, params2.patternIntensity);
+  gl2.uniform1f(patternContrastLocation2, params2.patternContrast);
+  gl2.uniform1f(patternTurbulenceLocation2, params2.patternTurbulence);
   gl2.uniform2f(positionLocation_uniform2, params2.positionX, params2.positionY);
   const rgb1_2 = hexToRgb(params2.colorStop1); const rgb2_2 = hexToRgb(params2.colorStop2); const rgb3_2 = hexToRgb(params2.colorStop3); const rgb4_2 = hexToRgb(params2.colorStop4); const rgb5_2 = hexToRgb(params2.colorStop5);
   gl2.uniform3f(colorStop1Location2, rgb1_2[0], rgb1_2[1], rgb1_2[2]);

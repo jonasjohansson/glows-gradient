@@ -1,7 +1,5 @@
 # Glows Gradient - Parameter Guide
 
-Welcome! This guide will help you understand all the parameters available in the Glows Gradient editor. Think of this as your reference manual for creating beautiful, animated gradient blobs.
-
 ## Table of Contents
 
 1. [Overview](#overview)
